@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
     }
 
     // Assign role
-    await supabaseAdmin.from('user_roles').insert({ user_id: userId, role: role || 'local_user' });
+    await supabaseAdmin.from('user_roles').insert({ user_id: userId, role: role || 'store_coordinator' });
 
     return new Response(JSON.stringify({ success: true, user_id: userId }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

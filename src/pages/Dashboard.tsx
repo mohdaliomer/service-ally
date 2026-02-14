@@ -46,11 +46,11 @@ export default function Dashboard() {
 
   const stats = useMemo(() => {
     const total = complaints.length;
-    const open = complaints.filter(c => c.status === 'Open').length;
-    const inProgress = complaints.filter(c => ['Assigned', 'In Progress'].includes(c.status)).length;
-    const closed = complaints.filter(c => c.status === 'Closed').length;
+    const submitted = complaints.filter(c => c.status === 'Submitted').length;
+    const inProgress = complaints.filter(c => !['Submitted', 'Completed-Internal', 'Completed-External', 'Rejected'].includes(c.status)).length;
+    const completed = complaints.filter(c => c.status === 'Completed-Internal' || c.status === 'Completed-External').length;
     const critical = complaints.filter(c => c.priority === 'Critical').length;
-    return { total, open, inProgress, closed, critical };
+    return { total, submitted, inProgress, completed, critical };
   }, [complaints]);
 
   const categoryData = useMemo(() => {
@@ -67,7 +67,7 @@ export default function Dashboard() {
 
   const overdue7Days = useMemo(() => {
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    return complaints.filter(c => c.status !== 'Closed' && new Date(c.created_at) <= sevenDaysAgo);
+    return complaints.filter(c => !['Completed-Internal', 'Completed-External', 'Rejected'].includes(c.status) && new Date(c.created_at) <= sevenDaysAgo);
   }, [complaints]);
 
   const recentComplaints = complaints.slice(0, 5);
@@ -78,16 +78,16 @@ export default function Dashboard() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Dashboard</h1>
-        <p className="text-muted-foreground text-sm mt-1">Overview of maintenance complaints{isAdmin ? ' across all locations' : ''}</p>
+        <p className="text-muted-foreground text-sm mt-1">Overview of maintenance requests{isAdmin ? ' across all locations' : ''}</p>
       </div>
 
       {/* Stat Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         {[
           { label: 'Total', value: stats.total, icon: TrendingUp, color: 'text-foreground' },
-          { label: 'Open', value: stats.open, icon: FileWarning, color: 'text-status-open' },
+          { label: 'Submitted', value: stats.submitted, icon: FileWarning, color: 'text-status-open' },
           { label: 'In Progress', value: stats.inProgress, icon: Clock, color: 'text-status-in-progress' },
-          { label: 'Closed', value: stats.closed, icon: CheckCircle2, color: 'text-status-closed' },
+          { label: 'Completed', value: stats.completed, icon: CheckCircle2, color: 'text-status-closed' },
           { label: 'Critical', value: stats.critical, icon: AlertTriangle, color: 'text-priority-critical' },
         ].map(({ label, value, icon: Icon, color }) => (
           <Card key={label}>
@@ -140,7 +140,7 @@ export default function Dashboard() {
               <TimerOff className="w-4 h-4 text-priority-critical" />
               <CardTitle className="text-sm font-semibold text-priority-critical">Pending 7+ Days ({overdue7Days.length})</CardTitle>
             </div>
-            <Link to="/complaints" className="text-xs font-medium text-accent hover:underline flex items-center gap-1">View all <ArrowRight className="w-3 h-3" /></Link>
+            <Link to="/requests" className="text-xs font-medium text-accent hover:underline flex items-center gap-1">View all <ArrowRight className="w-3 h-3" /></Link>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
@@ -161,7 +161,7 @@ export default function Dashboard() {
                     const days = Math.floor((Date.now() - new Date(c.created_at).getTime()) / (1000 * 60 * 60 * 24));
                     return (
                       <tr key={c.id} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
-                        <td className="py-2.5 pr-4"><Link to={`/complaints/${c.id}`} className="font-mono text-xs font-medium text-accent hover:underline">{c.id}</Link></td>
+                        <td className="py-2.5 pr-4"><Link to={`/requests/${c.id}`} className="font-mono text-xs font-medium text-accent hover:underline">{c.id}</Link></td>
                         <td className="py-2.5 pr-4 text-xs">{c.store}</td>
                         <td className="py-2.5 pr-4 text-xs">{c.category}</td>
                         <td className="py-2.5 pr-4"><span className="text-xs font-bold text-priority-critical">{days} days</span></td>
@@ -181,8 +181,8 @@ export default function Dashboard() {
       {/* Recent Complaints */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-sm font-semibold">Recent Complaints</CardTitle>
-          <Link to="/complaints" className="text-xs font-medium text-accent hover:underline flex items-center gap-1">View all <ArrowRight className="w-3 h-3" /></Link>
+          <CardTitle className="text-sm font-semibold">Recent Requests</CardTitle>
+          <Link to="/requests" className="text-xs font-medium text-accent hover:underline flex items-center gap-1">View all <ArrowRight className="w-3 h-3" /></Link>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -200,7 +200,7 @@ export default function Dashboard() {
               <tbody>
                 {recentComplaints.map((c) => (
                   <tr key={c.id} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
-                    <td className="py-2.5 pr-4"><Link to={`/complaints/${c.id}`} className="font-mono text-xs font-medium text-accent hover:underline">{c.id}</Link></td>
+                    <td className="py-2.5 pr-4"><Link to={`/requests/${c.id}`} className="font-mono text-xs font-medium text-accent hover:underline">{c.id}</Link></td>
                     <td className="py-2.5 pr-4 text-xs">{c.store}</td>
                     <td className="py-2.5 pr-4 text-xs">{c.category}</td>
                     <td className="py-2.5 pr-4"><PriorityBadge priority={c.priority as any} /></td>
@@ -209,7 +209,7 @@ export default function Dashboard() {
                   </tr>
                 ))}
                 {complaints.length === 0 && (
-                  <tr><td colSpan={6} className="py-12 text-center text-muted-foreground">No complaints yet. Create your first one!</td></tr>
+                  <tr><td colSpan={6} className="py-12 text-center text-muted-foreground">No requests yet. Create your first one!</td></tr>
                 )}
               </tbody>
             </table>

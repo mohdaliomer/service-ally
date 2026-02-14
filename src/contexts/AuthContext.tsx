@@ -1,8 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-
-type AppRole = 'admin' | 'local_user';
+import type { AppRole } from '@/lib/workflow';
 
 interface AuthContextType {
   user: User | null;
@@ -30,7 +29,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       supabase.from('user_roles').select('role').eq('user_id', userId).single(),
     ]);
     if (profileRes.data) setProfile(profileRes.data);
-    if (roleRes.data) setRole(roleRes.data.role);
+    if (roleRes.data) setRole(roleRes.data.role as AppRole);
   };
 
   useEffect(() => {

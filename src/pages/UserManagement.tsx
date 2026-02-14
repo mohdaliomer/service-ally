@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DEPARTMENTS } from '@/lib/types';
+import { ALL_ROLES, getRoleBadgeLabel } from '@/lib/workflow';
 import { useToast } from '@/hooks/use-toast';
 import { UserPlus, Users, Shield, User } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -33,7 +34,7 @@ export default function UserManagement() {
     fullName: '',
     department: '',
     store: '',
-    role: 'local_user' as 'admin' | 'local_user',
+    role: 'local_user' as string,
   });
   const [storesList, setStoresList] = useState<string[]>([]);
 
@@ -85,7 +86,7 @@ export default function UserManagement() {
     if (error || data?.error) {
       toast({ title: 'Error', description: data?.error || error?.message || 'Failed to create user', variant: 'destructive' });
     } else {
-      toast({ title: 'User created', description: `${form.fullName} has been added as ${form.role === 'admin' ? 'Admin' : 'Local User'}` });
+      toast({ title: 'User created', description: `${form.fullName} has been added as ${getRoleBadgeLabel(form.role)}` });
       setForm({ email: '', password: '', fullName: '', department: '', store: '', role: 'local_user' });
       fetchUsers();
     }
@@ -133,11 +134,12 @@ export default function UserManagement() {
               </div>
               <div className="space-y-2">
                 <Label>Role *</Label>
-                <Select value={form.role} onValueChange={v => setForm(f => ({ ...f, role: v as 'admin' | 'local_user' }))}>
+                <Select value={form.role} onValueChange={v => setForm(f => ({ ...f, role: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="local_user">Local User</SelectItem>
+                    {ALL_ROLES.map(r => (
+                      <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -201,7 +203,7 @@ export default function UserManagement() {
                     <td className="py-3 px-4 text-xs text-muted-foreground">{u.email}</td>
                     <td className="py-3 px-4">
                       <Badge variant={u.role === 'admin' ? 'default' : 'secondary'} className="text-xs">
-                        {u.role === 'admin' ? <><Shield className="w-3 h-3 mr-1" /> Admin</> : <><User className="w-3 h-3 mr-1" /> Local User</>}
+                        {u.role === 'admin' ? <><Shield className="w-3 h-3 mr-1" /> Admin</> : <><User className="w-3 h-3 mr-1" /> {getRoleBadgeLabel(u.role || 'local_user')}</>}
                       </Badge>
                     </td>
                     <td className="py-3 px-4 text-xs">{u.store || '—'}</td>

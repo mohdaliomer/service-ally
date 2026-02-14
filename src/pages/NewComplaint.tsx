@@ -68,7 +68,6 @@ export default function NewComplaint() {
 
     setSubmitting(true);
 
-    // Generate complaint ID
     const { data: idData } = await supabase.rpc('generate_complaint_id');
     const complaintId = idData || `CMP-${Date.now()}`;
 
@@ -84,6 +83,8 @@ export default function NewComplaint() {
       remarks: form.remarks || null,
       reported_by: user.id,
       reported_by_name: profile?.full_name || user.email || 'Unknown',
+      status: 'Submitted',
+      current_stage: 1,
     });
 
     if (error) {
@@ -91,6 +92,16 @@ export default function NewComplaint() {
       setSubmitting(false);
       return;
     }
+
+    // Log the submission action
+    await supabase.from('workflow_actions').insert({
+      complaint_id: complaintId,
+      stage: 1,
+      action: 'submit',
+      actor_id: user.id,
+      actor_name: profile?.full_name || user.email,
+      notes: null,
+    });
 
     // Send notification (fire and forget)
     supabase.functions.invoke('send-complaint-notification', {
@@ -105,21 +116,21 @@ export default function NewComplaint() {
       },
     });
 
-    toast({ title: 'Complaint submitted!', description: `${complaintId} has been registered. Notifications sent to department team.` });
-    navigate('/complaints');
+    toast({ title: 'Request submitted!', description: `${complaintId} has been registered and is pending Store Manager approval.` });
+    navigate('/requests');
   };
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">New Complaint</h1>
-        <p className="text-muted-foreground text-sm mt-1">Submit a maintenance service complaint</p>
+        <h1 className="text-2xl font-bold">New Maintenance Request</h1>
+        <p className="text-muted-foreground text-sm mt-1">Submit a maintenance service request</p>
       </div>
 
       <form onSubmit={handleSubmit}>
         <Card>
           <CardHeader className="pb-4">
-            <CardTitle className="text-sm">Complaint Details</CardTitle>
+            <CardTitle className="text-sm">Request Details</CardTitle>
           </CardHeader>
           <CardContent className="space-y-5">
             <div className="grid sm:grid-cols-2 gap-4">
@@ -230,9 +241,9 @@ export default function NewComplaint() {
             </div>
 
             <div className="flex justify-end gap-3 pt-2">
-              <Button type="button" variant="outline" onClick={() => navigate('/complaints')}>Cancel</Button>
+              <Button type="button" variant="outline" onClick={() => navigate('/requests')}>Cancel</Button>
               <Button type="submit" className="bg-accent text-accent-foreground hover:bg-accent/90" disabled={submitting}>
-                {submitting ? 'Submitting...' : 'Submit Complaint'}
+                {submitting ? 'Submitting...' : 'Submit Request'}
               </Button>
             </div>
           </CardContent>
