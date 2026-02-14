@@ -91,8 +91,8 @@ export default function NewComplaint() {
       remarks: form.remarks || null,
       reported_by: user.id,
       reported_by_name: profile?.full_name || user.email || 'Unknown',
-      status: 'Submitted',
-      current_stage: 1,
+      status: 'Pending-Stage-2',
+      current_stage: 2,
     });
 
     if (error) {
