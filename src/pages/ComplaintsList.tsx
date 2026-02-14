@@ -8,7 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { CATEGORIES, PRIORITIES } from '@/lib/types';
 import { ALL_STATUSES } from '@/lib/workflow';
-import { PlusCircle, Search } from 'lucide-react';
+import { PlusCircle, Search, Download } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import * as XLSX from 'xlsx';
 
 interface RequestRow {
   id: string;
@@ -26,12 +28,34 @@ interface RequestRow {
 }
 
 export default function ComplaintsList() {
+  const { isAdmin } = useAuth();
   const [requests, setRequests] = useState<RequestRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterPriority, setFilterPriority] = useState<string>('all');
+
+  const exportToExcel = () => {
+    const exportData = filtered.map(c => ({
+      'ID': c.id,
+      'Date': new Date(c.created_at).toLocaleDateString('en-IN'),
+      'Store': c.store,
+      'Department': c.department || '',
+      'Category': c.category,
+      'Description': c.description,
+      'Priority': c.priority,
+      'Stage': c.current_stage,
+      'Status': c.status,
+      'Flow Type': c.flow_type || '',
+      'Reported By': c.reported_by_name,
+      'Assigned To': c.assigned_to || '',
+    }));
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Maintenance Requests');
+    XLSX.writeFile(wb, `maintenance-requests-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
 
   useEffect(() => {
     const fetch = async () => {
@@ -63,11 +87,18 @@ export default function ComplaintsList() {
           <h1 className="text-2xl font-bold">Maintenance Requests</h1>
           <p className="text-muted-foreground text-sm mt-1">{loading ? 'Loading...' : `${filtered.length} requests found`}</p>
         </div>
-        <Link to="/requests/new">
-          <Button className="bg-accent text-accent-foreground hover:bg-accent/90">
-            <PlusCircle className="w-4 h-4 mr-2" /> New Request
-          </Button>
-        </Link>
+        <div className="flex gap-2">
+          {isAdmin && (
+            <Button variant="outline" onClick={exportToExcel} disabled={filtered.length === 0}>
+              <Download className="w-4 h-4 mr-2" /> Export Excel
+            </Button>
+          )}
+          <Link to="/requests/new">
+            <Button className="bg-accent text-accent-foreground hover:bg-accent/90">
+              <PlusCircle className="w-4 h-4 mr-2" /> New Request
+            </Button>
+          </Link>
+        </div>
       </div>
 
       <Card>
