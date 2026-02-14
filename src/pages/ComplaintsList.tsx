@@ -6,10 +6,11 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { CATEGORIES, STATUSES, PRIORITIES } from '@/lib/types';
+import { CATEGORIES, PRIORITIES } from '@/lib/types';
+import { ALL_STATUSES } from '@/lib/workflow';
 import { PlusCircle, Search } from 'lucide-react';
 
-interface Complaint {
+interface RequestRow {
   id: string;
   created_at: string;
   store: string;
@@ -20,10 +21,12 @@ interface Complaint {
   status: string;
   reported_by_name: string;
   assigned_to: string | null;
+  flow_type: string | null;
+  current_stage: number;
 }
 
 export default function ComplaintsList() {
-  const [complaints, setComplaints] = useState<Complaint[]>([]);
+  const [requests, setRequests] = useState<RequestRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('all');
@@ -33,14 +36,14 @@ export default function ComplaintsList() {
   useEffect(() => {
     const fetch = async () => {
       const { data } = await supabase.from('complaints').select('*').order('created_at', { ascending: false });
-      if (data) setComplaints(data);
+      if (data) setRequests(data as RequestRow[]);
       setLoading(false);
     };
     fetch();
   }, []);
 
   const filtered = useMemo(() => {
-    return complaints.filter(c => {
+    return requests.filter(c => {
       const matchSearch = search === '' ||
         c.id.toLowerCase().includes(search.toLowerCase()) ||
         c.description.toLowerCase().includes(search.toLowerCase()) ||
@@ -51,18 +54,18 @@ export default function ComplaintsList() {
       const matchPriority = filterPriority === 'all' || c.priority === filterPriority;
       return matchSearch && matchCat && matchStatus && matchPriority;
     });
-  }, [complaints, search, filterCategory, filterStatus, filterPriority]);
+  }, [requests, search, filterCategory, filterStatus, filterPriority]);
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Complaints</h1>
-          <p className="text-muted-foreground text-sm mt-1">{loading ? 'Loading...' : `${filtered.length} complaints found`}</p>
+          <h1 className="text-2xl font-bold">Maintenance Requests</h1>
+          <p className="text-muted-foreground text-sm mt-1">{loading ? 'Loading...' : `${filtered.length} requests found`}</p>
         </div>
-        <Link to="/complaints/new">
+        <Link to="/requests/new">
           <Button className="bg-accent text-accent-foreground hover:bg-accent/90">
-            <PlusCircle className="w-4 h-4 mr-2" /> New Complaint
+            <PlusCircle className="w-4 h-4 mr-2" /> New Request
           </Button>
         </Link>
       </div>
@@ -81,10 +84,10 @@ export default function ComplaintsList() {
             </SelectContent>
           </Select>
           <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger className="w-full sm:w-40"><SelectValue placeholder="Status" /></SelectTrigger>
+            <SelectTrigger className="w-full sm:w-48"><SelectValue placeholder="Status" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Statuses</SelectItem>
-              {STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+              {ALL_STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
             </SelectContent>
           </Select>
           <Select value={filterPriority} onValueChange={setFilterPriority}>
@@ -109,25 +112,25 @@ export default function ComplaintsList() {
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground text-xs">Category</th>
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground text-xs">Description</th>
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground text-xs">Priority</th>
+                  <th className="text-left py-3 px-4 font-medium text-muted-foreground text-xs">Stage</th>
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground text-xs">Status</th>
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground text-xs">Assigned</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((c) => (
                   <tr key={c.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
-                    <td className="py-3 px-4"><Link to={`/complaints/${c.id}`} className="font-mono text-xs font-medium text-accent hover:underline">{c.id}</Link></td>
+                    <td className="py-3 px-4"><Link to={`/requests/${c.id}`} className="font-mono text-xs font-medium text-accent hover:underline">{c.id}</Link></td>
                     <td className="py-3 px-4 text-xs text-muted-foreground whitespace-nowrap">{new Date(c.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</td>
                     <td className="py-3 px-4 text-xs">{c.store}</td>
                     <td className="py-3 px-4 text-xs">{c.category}</td>
                     <td className="py-3 px-4 text-xs max-w-[200px] truncate">{c.description}</td>
                     <td className="py-3 px-4"><PriorityBadge priority={c.priority as any} /></td>
-                    <td className="py-3 px-4"><StatusBadge status={c.status as any} /></td>
-                    <td className="py-3 px-4 text-xs text-muted-foreground">{c.assigned_to || '—'}</td>
+                    <td className="py-3 px-4 text-xs text-muted-foreground">{c.current_stage}</td>
+                    <td className="py-3 px-4"><StatusBadge status={c.status} /></td>
                   </tr>
                 ))}
                 {!loading && filtered.length === 0 && (
-                  <tr><td colSpan={8} className="py-12 text-center text-muted-foreground text-sm">No complaints match your filters.</td></tr>
+                  <tr><td colSpan={8} className="py-12 text-center text-muted-foreground text-sm">No requests match your filters.</td></tr>
                 )}
               </tbody>
             </table>

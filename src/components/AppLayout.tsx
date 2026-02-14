@@ -6,6 +6,7 @@ import {
   Wrench,
   Users,
   Store,
+  MapPinned,
   LogOut,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -14,15 +15,16 @@ import { Button } from '@/components/ui/button';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { pathname } = useLocation();
-  const { profile, isAdmin, signOut } = useAuth();
+  const { profile, isAdmin, signOut, role } = useAuth();
 
   const navItems = [
     { to: '/', label: 'Dashboard', icon: LayoutDashboard },
-    { to: '/complaints', label: 'Complaints', icon: ListTodo },
-    { to: '/complaints/new', label: 'New Complaint', icon: PlusCircle },
+    { to: '/requests', label: 'Requests', icon: ListTodo },
+    { to: '/requests/new', label: 'New Request', icon: PlusCircle },
     ...(isAdmin ? [
       { to: '/users', label: 'Users', icon: Users },
       { to: '/stores', label: 'Stores', icon: Store },
+      { to: '/regions', label: 'Regions', icon: MapPinned },
     ] : []),
   ];
 
@@ -36,12 +38,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
           <div>
             <h1 className="text-sm font-bold text-sidebar-foreground leading-tight">MaintainX</h1>
-            <p className="text-[11px] text-sidebar-muted leading-tight">Complaint Register</p>
+            <p className="text-[11px] text-sidebar-muted leading-tight">Maintenance Requests</p>
           </div>
         </div>
         <nav className="flex-1 px-3 py-4 space-y-1">
           {navItems.map(({ to, label, icon: Icon }) => {
-            const exactActive = pathname === to;
+            const exactActive = pathname === to || (to !== '/' && pathname.startsWith(to));
             return (
               <Link
                 key={to}
@@ -86,7 +88,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
           <nav className="flex items-center gap-1">
             {navItems.map(({ to, icon: Icon }) => {
-              const exactActive = pathname === to;
+              const exactActive = pathname === to || (to !== '/' && pathname.startsWith(to));
               return (
                 <Link
                   key={to}

@@ -11,6 +11,7 @@ import ComplaintDetail from "@/pages/ComplaintDetail";
 import NewComplaint from "@/pages/NewComplaint";
 import UserManagement from "@/pages/UserManagement";
 import StoreManagement from "@/pages/StoreManagement";
+import RegionManagement from "@/pages/RegionManagement";
 import Login from "@/pages/Login";
 import Setup from "@/pages/Setup";
 import NotFound from "./pages/NotFound";
@@ -33,11 +34,16 @@ function AppRoutes() {
       <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
       <Route path="/setup" element={user ? <Navigate to="/" replace /> : <Setup />} />
       <Route path="/" element={<ProtectedRoute><AppLayout><Dashboard /></AppLayout></ProtectedRoute>} />
-      <Route path="/complaints" element={<ProtectedRoute><AppLayout><ComplaintsList /></AppLayout></ProtectedRoute>} />
-      <Route path="/complaints/new" element={<ProtectedRoute><AppLayout><NewComplaint /></AppLayout></ProtectedRoute>} />
-      <Route path="/complaints/:id" element={<ProtectedRoute><AppLayout><ComplaintDetail /></AppLayout></ProtectedRoute>} />
+      <Route path="/requests" element={<ProtectedRoute><AppLayout><ComplaintsList /></AppLayout></ProtectedRoute>} />
+      <Route path="/requests/new" element={<ProtectedRoute><AppLayout><NewComplaint /></AppLayout></ProtectedRoute>} />
+      <Route path="/requests/:id" element={<ProtectedRoute><AppLayout><ComplaintDetail /></AppLayout></ProtectedRoute>} />
+      {/* Legacy routes redirect */}
+      <Route path="/complaints" element={<Navigate to="/requests" replace />} />
+      <Route path="/complaints/new" element={<Navigate to="/requests/new" replace />} />
+      <Route path="/complaints/:id" element={<Navigate to="/requests/:id" replace />} />
       <Route path="/users" element={<ProtectedRoute><AppLayout><UserManagement /></AppLayout></ProtectedRoute>} />
       <Route path="/stores" element={<ProtectedRoute><AppLayout><StoreManagement /></AppLayout></ProtectedRoute>} />
+      <Route path="/regions" element={<ProtectedRoute><AppLayout><RegionManagement /></AppLayout></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

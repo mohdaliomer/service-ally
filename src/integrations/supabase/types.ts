@@ -22,9 +22,11 @@ export type Database = {
           closure_approval: boolean | null
           contact_number: string
           created_at: string
+          current_stage: number
           department: string | null
           description: string
           expected_resolution: string | null
+          flow_type: string | null
           id: string
           priority: string
           remarks: string | null
@@ -42,9 +44,11 @@ export type Database = {
           closure_approval?: boolean | null
           contact_number: string
           created_at?: string
+          current_stage?: number
           department?: string | null
           description: string
           expected_resolution?: string | null
+          flow_type?: string | null
           id: string
           priority?: string
           remarks?: string | null
@@ -62,9 +66,11 @@ export type Database = {
           closure_approval?: boolean | null
           contact_number?: string
           created_at?: string
+          current_stage?: number
           department?: string | null
           description?: string
           expected_resolution?: string | null
+          flow_type?: string | null
           id?: string
           priority?: string
           remarks?: string | null
@@ -134,6 +140,27 @@ export type Database = {
         }
         Relationships: []
       }
+      regions: {
+        Row: {
+          code: string | null
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          code?: string | null
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          code?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       stores: {
         Row: {
           active: boolean
@@ -143,6 +170,7 @@ export type Database = {
           email: string | null
           id: string
           name: string
+          region_id: string | null
         }
         Insert: {
           active?: boolean
@@ -152,6 +180,7 @@ export type Database = {
           email?: string | null
           id?: string
           name: string
+          region_id?: string | null
         }
         Update: {
           active?: boolean
@@ -161,8 +190,17 @@ export type Database = {
           email?: string | null
           id?: string
           name?: string
+          region_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "stores_region_id_fkey"
+            columns: ["region_id"]
+            isOneToOne: false
+            referencedRelation: "regions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
@@ -185,6 +223,47 @@ export type Database = {
         }
         Relationships: []
       }
+      workflow_actions: {
+        Row: {
+          action: string
+          actor_id: string
+          actor_name: string | null
+          complaint_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          stage: number
+        }
+        Insert: {
+          action: string
+          actor_id: string
+          actor_name?: string | null
+          complaint_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          stage: number
+        }
+        Update: {
+          action?: string
+          actor_id?: string
+          actor_name?: string | null
+          complaint_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          stage?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_actions_complaint_id_fkey"
+            columns: ["complaint_id"]
+            isOneToOne: false
+            referencedRelation: "complaints"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -200,7 +279,16 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "local_user"
+      app_role:
+        | "admin"
+        | "local_user"
+        | "store_manager"
+        | "store_coordinator"
+        | "maintenance_coordinator"
+        | "regional_manager"
+        | "maintenance_manager"
+        | "admin_manager"
+        | "quality_verification"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -328,7 +416,17 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "local_user"],
+      app_role: [
+        "admin",
+        "local_user",
+        "store_manager",
+        "store_coordinator",
+        "maintenance_coordinator",
+        "regional_manager",
+        "maintenance_manager",
+        "admin_manager",
+        "quality_verification",
+      ],
     },
   },
 } as const
