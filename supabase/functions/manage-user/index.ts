@@ -68,14 +68,23 @@ Deno.serve(async (req) => {
     }
 
     if (action === 'delete') {
-      // Delete user (cascades to profiles and user_roles via FK)
+      // Check if user has complaints
+      const { count } = await supabaseAdmin.from('complaints').select('id', { count: 'exact', head: true }).eq('reported_by', user_id);
+      if (count && count > 0) {
+        return new Response(JSON.stringify({ error: `Cannot delete user: they have ${count} complaint(s). Reassign or delete complaints first.` }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      // Clean up related data first
+      await supabaseAdmin.from('complaint_attachments').delete().eq('uploaded_by', user_id);
+      await supabaseAdmin.from('workflow_actions').delete().eq('actor_id', user_id);
+      await supabaseAdmin.from('user_roles').delete().eq('user_id', user_id);
+      await supabaseAdmin.from('profiles').delete().eq('id', user_id);
+
+      // Delete auth user
       const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(user_id);
       if (deleteError) {
         return new Response(JSON.stringify({ error: deleteError.message }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
-      // Clean up profile and role manually if no cascade
-      await supabaseAdmin.from('user_roles').delete().eq('user_id', user_id);
-      await supabaseAdmin.from('profiles').delete().eq('id', user_id);
 
       return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
