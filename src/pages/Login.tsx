@@ -14,16 +14,6 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showSetupLink, setShowSetupLink] = useState(false);
-
-  useEffect(() => {
-    // Check if any users exist; if not, show setup link
-    import('@/integrations/supabase/client').then(({ supabase }) => {
-      supabase.from('profiles').select('id', { count: 'exact', head: true }).then(({ count }) => {
-        if (!count || count === 0) setShowSetupLink(true);
-      });
-    });
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,14 +55,6 @@ export default function Login() {
               <LogIn className="w-4 h-4 mr-2" />
               {loading ? 'Signing in...' : 'Sign In'}
             </Button>
-            {showSetupLink && (
-              <p className="text-center text-sm text-muted-foreground">
-                No account yet?{' '}
-                <Link to="/setup" className="text-accent hover:underline font-medium">
-                  Create Admin Account
-                </Link>
-              </p>
-            )}
           </form>
         </CardContent>
       </Card>
