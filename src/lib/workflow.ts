@@ -30,18 +30,14 @@ export type RequestStatus =
   | 'Pending-Stage-2'
   | 'Pending-Stage-3'
   // Internal path
-  | 'Internal-Work'
-  | 'Internal-Pending-Completion'
-  | 'Pending-Acknowledgement'
+  | 'Internal-Pending-MM'
+  | 'Internal-Pending-SM'
   | 'Completed-Internal'
   // External path
-  | 'External-Pending-RM'
-  | 'External-Coordinator'
-  | 'External-Pending-Maint-Mgr'
   | 'External-Pending-Admin'
-  | 'External-Pending-QC'
-  | 'External-Pending-Final'
-  | 'External-Pending-Acknowledgement'
+  | 'External-Pending-MC'
+  | 'External-Pending-MM'
+  | 'External-Pending-SM'
   | 'Completed-External'
   // Rejection
   | 'Rejected';
@@ -50,22 +46,18 @@ export const ALL_STATUSES: RequestStatus[] = [
   'Submitted',
   'Pending-Stage-2',
   'Pending-Stage-3',
-  'Internal-Work',
-  'Internal-Pending-Completion',
-  'Pending-Acknowledgement',
+  'Internal-Pending-MM',
+  'Internal-Pending-SM',
   'Completed-Internal',
-  'External-Pending-RM',
-  'External-Coordinator',
-  'External-Pending-Maint-Mgr',
   'External-Pending-Admin',
-  'External-Pending-QC',
-  'External-Pending-Final',
-  'External-Pending-Acknowledgement',
+  'External-Pending-MC',
+  'External-Pending-MM',
+  'External-Pending-SM',
   'Completed-External',
   'Rejected',
 ];
 
-export type WorkflowAction = 'submit' | 'approve' | 'reject' | 'decide_internal' | 'decide_external' | 'acknowledge' | 'verify' | 'return';
+export type WorkflowAction = 'submit' | 'approve' | 'reject' | 'decide_internal' | 'decide_external' | 'acknowledge' | 'verify' | 'return' | 'quality_check' | 'close';
 
 export interface StageInfo {
   stage: number;
@@ -77,16 +69,18 @@ export interface StageInfo {
   nextStatus?: RequestStatus;
   rejectStatus?: RequestStatus;
   returnToStage?: number;
+  /** Whether this stage requires a quality check (Good/Better + comment) */
+  requiresQualityCheck?: boolean;
 }
 
-// Common stages (both flows)
+// Common stages (both flows) - Stages 1-3
 export const COMMON_STAGES: StageInfo[] = [
   {
     stage: 1,
     label: 'Request Creation',
     status: 'Submitted',
     actorRole: 'store_coordinator',
-    actorLabel: 'Store / Maintenance Coordinator',
+    actorLabel: 'Store Coordinator',
     actions: [],
   },
   {
@@ -115,129 +109,78 @@ export const COMMON_STAGES: StageInfo[] = [
   },
 ];
 
+// Internal path: Stage 4 → 5 → Completed
 export const INTERNAL_STAGES: StageInfo[] = [
   {
     stage: 4,
-    label: 'Internal Work Coordination',
-    status: 'Internal-Work',
-    actorRole: 'maintenance_coordinator',
-    actorLabel: 'Maintenance Coordinator',
+    label: 'Maintenance Manager Approval',
+    status: 'Internal-Pending-MM',
+    actorRole: 'maintenance_manager',
+    actorLabel: 'Maintenance Manager',
     actions: [
-      { action: 'submit', label: 'Submit for Approval', variant: 'default' },
+      { action: 'approve', label: 'Approve', variant: 'default' },
+      { action: 'reject', label: 'Reject', variant: 'destructive' },
     ],
-    nextStatus: 'Internal-Pending-Completion',
+    nextStatus: 'Internal-Pending-SM',
+    rejectStatus: 'Rejected',
   },
   {
     stage: 5,
-    label: 'Work Completion Approval',
-    status: 'Internal-Pending-Completion',
-    actorRole: 'maintenance_manager',
-    actorLabel: 'Maintenance Manager (Naseer)',
-    actions: [
-      { action: 'approve', label: 'Approve', variant: 'default' },
-      { action: 'reject', label: 'Reject (Rework)', variant: 'destructive' },
-    ],
-    nextStatus: 'Pending-Acknowledgement',
-    returnToStage: 4,
-  },
-  {
-    stage: 6,
-    label: 'Store Acknowledgement',
-    status: 'Pending-Acknowledgement',
+    label: 'Store Manager Verify & Close',
+    status: 'Internal-Pending-SM',
     actorRole: 'store_manager',
     actorLabel: 'Store Manager',
     actions: [
-      { action: 'acknowledge', label: 'Acknowledge Completion', variant: 'default' },
+      { action: 'close', label: 'Verify & Close', variant: 'default' },
     ],
     nextStatus: 'Completed-Internal',
   },
 ];
 
+// External path: Stage 4 → 5 → 6 → 7 → Completed
 export const EXTERNAL_STAGES: StageInfo[] = [
   {
     stage: 4,
-    label: 'Regional Manager Approval',
-    status: 'External-Pending-RM',
-    actorRole: 'regional_manager',
-    actorLabel: 'Regional Manager',
+    label: 'Admin Manager Approval',
+    status: 'External-Pending-Admin',
+    actorRole: 'admin_manager',
+    actorLabel: 'Admin Manager',
     actions: [
       { action: 'approve', label: 'Approve', variant: 'default' },
-      { action: 'reject', label: 'Reject', variant: 'destructive' },
     ],
-    nextStatus: 'External-Coordinator',
-    rejectStatus: 'Rejected',
+    nextStatus: 'External-Pending-MC',
   },
   {
     stage: 5,
-    label: 'Coordinator Work Management',
-    status: 'External-Coordinator',
+    label: 'Maintenance Coordinator Quality Check',
+    status: 'External-Pending-MC',
     actorRole: 'maintenance_coordinator',
     actorLabel: 'Maintenance Coordinator',
     actions: [
-      { action: 'submit', label: 'Submit for Approval', variant: 'default' },
+      { action: 'quality_check', label: 'Submit Quality Check', variant: 'default' },
     ],
-    nextStatus: 'External-Pending-Maint-Mgr',
+    nextStatus: 'External-Pending-MM',
+    requiresQualityCheck: true,
   },
   {
     stage: 6,
     label: 'Maintenance Manager Approval',
-    status: 'External-Pending-Maint-Mgr',
+    status: 'External-Pending-MM',
     actorRole: 'maintenance_manager',
-    actorLabel: 'Maintenance Manager (Naseer)',
+    actorLabel: 'Maintenance Manager',
     actions: [
       { action: 'approve', label: 'Approve', variant: 'default' },
-      { action: 'reject', label: 'Reject (Revise)', variant: 'destructive' },
     ],
-    nextStatus: 'External-Pending-Admin',
-    returnToStage: 5,
+    nextStatus: 'External-Pending-SM',
   },
   {
     stage: 7,
-    label: 'Admin Manager Approval',
-    status: 'External-Pending-Admin',
-    actorRole: 'admin_manager',
-    actorLabel: 'Admin Manager (Sadath)',
-    actions: [
-      { action: 'approve', label: 'Approve', variant: 'default' },
-      { action: 'reject', label: 'Reject', variant: 'destructive' },
-    ],
-    nextStatus: 'External-Pending-QC',
-    rejectStatus: 'Rejected',
-  },
-  {
-    stage: 8,
-    label: 'Quality Verification & Inspection',
-    status: 'External-Pending-QC',
-    actorRole: 'quality_verification',
-    actorLabel: 'Quality Verification',
-    actions: [
-      { action: 'verify', label: 'Verify (Pass)', variant: 'default' },
-      { action: 'return', label: 'Return (Fail)', variant: 'destructive' },
-    ],
-    nextStatus: 'External-Pending-Final',
-    returnToStage: 5,
-  },
-  {
-    stage: 9,
-    label: 'Final Approval',
-    status: 'External-Pending-Final',
-    actorRole: 'maintenance_manager',
-    actorLabel: 'Maintenance Manager (Naseer)',
-    actions: [
-      { action: 'approve', label: 'Approve', variant: 'default' },
-      { action: 'reject', label: 'Reject', variant: 'destructive' },
-    ],
-    nextStatus: 'External-Pending-Acknowledgement',
-    rejectStatus: 'Rejected',
-  },
-  {
-    stage: 10,
-    label: 'Store Acknowledgement',
-    status: 'External-Pending-Acknowledgement',
+    label: 'Store Manager Verify & Close',
+    status: 'External-Pending-SM',
     actorRole: 'store_manager',
     actorLabel: 'Store Manager',
     actions: [
-      { action: 'acknowledge', label: 'Acknowledge Completion', variant: 'default' },
+      { action: 'close', label: 'Verify & Close', variant: 'default' },
     ],
     nextStatus: 'Completed-External',
   },
@@ -265,23 +208,15 @@ export function getNextStatusAfterAction(
   // Stage 3 decision point
   if (stageInfo.stage === 3) {
     if (action === 'decide_internal') {
-      return { nextStatus: 'Internal-Work', nextStage: 4 };
+      return { nextStatus: 'Internal-Pending-MM', nextStage: 4 };
     }
     if (action === 'decide_external') {
-      return { nextStatus: 'External-Pending-RM', nextStage: 4 };
+      return { nextStatus: 'External-Pending-Admin', nextStage: 4 };
     }
   }
 
   if (action === 'reject' && stageInfo.rejectStatus) {
     return { nextStatus: stageInfo.rejectStatus, nextStage: stageInfo.stage };
-  }
-
-  if ((action === 'reject' || action === 'return') && stageInfo.returnToStage) {
-    const returnStage = getStagesForFlow(flowType as FlowType)
-      .find(s => s.stage === stageInfo.returnToStage);
-    if (returnStage) {
-      return { nextStatus: returnStage.status, nextStage: returnStage.stage };
-    }
   }
 
   if (stageInfo.nextStatus) {

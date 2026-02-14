@@ -6,6 +6,8 @@ import { StatusBadge, PriorityBadge } from '@/components/StatusBadge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Calendar, MapPin, Phone, User, Wrench, CheckCircle2, XCircle, Clock, Download, ImagePlus, FileImage, Paperclip, X } from 'lucide-react';
 import {
@@ -71,6 +73,7 @@ export default function ComplaintDetail() {
   const [actionNotes, setActionNotes] = useState('');
   const [acting, setActing] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [qualityRating, setQualityRating] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchData = async () => {
@@ -122,7 +125,7 @@ export default function ComplaintDetail() {
     }
   };
 
-  const handleAction = async (action: WorkflowAction) => {
+  const handleAction = async (action: WorkflowAction, notesOverride?: string) => {
     if (!request || !user || !role) return;
     setActing(true);
 
@@ -161,7 +164,7 @@ export default function ComplaintDetail() {
       action,
       actor_id: user.id,
       actor_name: profile?.full_name || user.email,
-      notes: actionNotes || null,
+      notes: notesOverride || actionNotes || null,
     });
 
     toast({ title: 'Action completed', description: `Request moved to ${result.nextStatus}` });
@@ -265,8 +268,23 @@ export default function ComplaintDetail() {
             <p className="text-xs text-muted-foreground">
               Acting as: <span className="font-semibold">{currentStageInfo.actorLabel}</span>
             </p>
+            {currentStageInfo.requiresQualityCheck && (
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Quality Rating *</Label>
+                <RadioGroup value={qualityRating} onValueChange={setQualityRating} className="flex gap-4">
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="Good" id="qc-good" />
+                    <Label htmlFor="qc-good" className="cursor-pointer">Good</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="Better" id="qc-better" />
+                    <Label htmlFor="qc-better" className="cursor-pointer">Better</Label>
+                  </div>
+                </RadioGroup>
+              </div>
+            )}
             <Textarea
-              placeholder="Add notes (optional)..."
+              placeholder={currentStageInfo.requiresQualityCheck ? "Quality check comments *..." : "Add notes (optional)..."}
               value={actionNotes}
               onChange={e => setActionNotes(e.target.value)}
               rows={2}
@@ -276,8 +294,14 @@ export default function ComplaintDetail() {
                 <Button
                   key={action}
                   variant={variant}
-                  disabled={acting}
-                  onClick={() => handleAction(action)}
+                  disabled={acting || (currentStageInfo.requiresQualityCheck && (!qualityRating || !actionNotes))}
+                  onClick={() => {
+                    if (currentStageInfo.requiresQualityCheck) {
+                      handleAction(action, `Quality: ${qualityRating} | ${actionNotes}`);
+                    } else {
+                      handleAction(action);
+                    }
+                  }}
                 >
                   {label}
                 </Button>
