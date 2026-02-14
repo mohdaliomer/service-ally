@@ -9,8 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { DEPARTMENTS } from '@/lib/types';
 import { ALL_ROLES, getRoleBadgeLabel } from '@/lib/workflow';
 import { useToast } from '@/hooks/use-toast';
-import { UserPlus, Users, Shield, User } from 'lucide-react';
+import { UserPlus, Users, Shield, User, Pencil, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
 
 interface UserWithRole {
   id: string;
@@ -23,7 +25,7 @@ interface UserWithRole {
 }
 
 export default function UserManagement() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, user: currentUser } = useAuth();
   const { toast } = useToast();
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,6 +39,15 @@ export default function UserManagement() {
     role: 'local_user' as string,
   });
   const [storesList, setStoresList] = useState<string[]>([]);
+
+  // Edit state
+  const [editUser, setEditUser] = useState<UserWithRole | null>(null);
+  const [editForm, setEditForm] = useState({ role: '', department: '', store: '' });
+  const [saving, setSaving] = useState(false);
+
+  // Delete state
+  const [deleteUser, setDeleteUser] = useState<UserWithRole | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchStores = async () => {
     const { data } = await supabase.from('stores').select('name').eq('active', true).order('name');
@@ -70,19 +81,9 @@ export default function UserManagement() {
       return;
     }
     setCreating(true);
-
-    // Use edge function to create user (admin privilege needed)
     const { data, error } = await supabase.functions.invoke('create-user', {
-      body: {
-        email: form.email,
-        password: form.password,
-        full_name: form.fullName,
-        department: form.department || null,
-        store: form.store || null,
-        role: form.role,
-      },
+      body: { email: form.email, password: form.password, full_name: form.fullName, department: form.department || null, store: form.store || null, role: form.role },
     });
-
     if (error || data?.error) {
       toast({ title: 'Error', description: data?.error || error?.message || 'Failed to create user', variant: 'destructive' });
     } else {
@@ -91,6 +92,43 @@ export default function UserManagement() {
       fetchUsers();
     }
     setCreating(false);
+  };
+
+  const openEdit = (u: UserWithRole) => {
+    setEditUser(u);
+    setEditForm({ role: u.role || 'local_user', department: u.department || '', store: u.store || '' });
+  };
+
+  const handleUpdate = async () => {
+    if (!editUser) return;
+    setSaving(true);
+    const { data, error } = await supabase.functions.invoke('manage-user', {
+      body: { action: 'update', user_id: editUser.id, role: editForm.role, department: editForm.department || null, store: editForm.store || null },
+    });
+    if (error || data?.error) {
+      toast({ title: 'Error', description: data?.error || error?.message || 'Failed to update user', variant: 'destructive' });
+    } else {
+      toast({ title: 'User updated', description: `${editUser.full_name} has been updated.` });
+      setEditUser(null);
+      fetchUsers();
+    }
+    setSaving(false);
+  };
+
+  const handleDelete = async () => {
+    if (!deleteUser) return;
+    setDeleting(true);
+    const { data, error } = await supabase.functions.invoke('manage-user', {
+      body: { action: 'delete', user_id: deleteUser.id },
+    });
+    if (error || data?.error) {
+      toast({ title: 'Error', description: data?.error || error?.message || 'Failed to delete user', variant: 'destructive' });
+    } else {
+      toast({ title: 'User deleted', description: `${deleteUser.full_name} has been removed.` });
+      setDeleteUser(null);
+      fetchUsers();
+    }
+    setDeleting(false);
   };
 
   if (!isAdmin) {
@@ -192,11 +230,12 @@ export default function UserManagement() {
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground text-xs">Store</th>
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground text-xs">Department</th>
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground text-xs">Created</th>
+                  <th className="text-right py-3 px-4 font-medium text-muted-foreground text-xs">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={6} className="py-8 text-center text-muted-foreground">Loading...</td></tr>
+                  <tr><td colSpan={7} className="py-8 text-center text-muted-foreground">Loading...</td></tr>
                 ) : users.map(u => (
                   <tr key={u.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
                     <td className="py-3 px-4 text-sm font-medium">{u.full_name}</td>
@@ -211,6 +250,22 @@ export default function UserManagement() {
                     <td className="py-3 px-4 text-xs text-muted-foreground">
                       {new Date(u.created_at).toLocaleDateString('en-IN')}
                     </td>
+                    <td className="py-3 px-4 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(u)}>
+                          <Pencil className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-destructive hover:text-destructive"
+                          onClick={() => setDeleteUser(u)}
+                          disabled={u.id === currentUser?.id}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -218,6 +273,67 @@ export default function UserManagement() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Edit Dialog */}
+      <Dialog open={!!editUser} onOpenChange={open => !open && setEditUser(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit User</DialogTitle>
+            <DialogDescription>Update role, store, and department for {editUser?.full_name}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Role</Label>
+              <Select value={editForm.role} onValueChange={v => setEditForm(f => ({ ...f, role: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {ALL_ROLES.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Store</Label>
+              <Select value={editForm.store} onValueChange={v => setEditForm(f => ({ ...f, store: v }))}>
+                <SelectTrigger><SelectValue placeholder="Select store" /></SelectTrigger>
+                <SelectContent>
+                  {storesList.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Department</Label>
+              <Select value={editForm.department} onValueChange={v => setEditForm(f => ({ ...f, department: v }))}>
+                <SelectTrigger><SelectValue placeholder="Select department" /></SelectTrigger>
+                <SelectContent>
+                  {DEPARTMENTS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditUser(null)}>Cancel</Button>
+            <Button onClick={handleUpdate} disabled={saving}>{saving ? 'Saving...' : 'Save Changes'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deleteUser} onOpenChange={open => !open && setDeleteUser(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete User</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <strong>{deleteUser?.full_name}</strong> ({deleteUser?.email})? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} disabled={deleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {deleting ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
