@@ -14,6 +14,7 @@ interface StoreRow {
   name: string;
   code: string | null;
   city: string | null;
+  email: string | null;
   active: boolean;
   created_at: string;
 }
@@ -24,7 +25,7 @@ export default function StoreManagement() {
   const [stores, setStores] = useState<StoreRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
-  const [form, setForm] = useState({ name: '', code: '', city: '' });
+  const [form, setForm] = useState({ name: '', code: '', city: '', email: '' });
 
   const fetchStores = async () => {
     const { data } = await supabase.from('stores').select('*').order('name');
@@ -45,12 +46,13 @@ export default function StoreManagement() {
       name: form.name.trim(),
       code: form.code.trim() || null,
       city: form.city.trim() || null,
+      email: form.email.trim() || null,
     });
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
       toast({ title: 'Store added', description: `${form.name} has been created.` });
-      setForm({ name: '', code: '', city: '' });
+      setForm({ name: '', code: '', city: '', email: '' });
       fetchStores();
     }
     setCreating(false);
@@ -107,6 +109,10 @@ export default function StoreManagement() {
               <Label className="text-xs">City</Label>
               <Input value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} placeholder="e.g. Jaipur" />
             </div>
+            <div className="w-full sm:w-48 space-y-1">
+              <Label className="text-xs">Email</Label>
+              <Input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="e.g. store@example.com" />
+            </div>
             <div className="flex items-end">
               <Button type="submit" disabled={creating}>
                 <PlusCircle className="w-4 h-4 mr-1" />
@@ -132,13 +138,14 @@ export default function StoreManagement() {
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground text-xs">Name</th>
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground text-xs">Code</th>
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground text-xs">City</th>
+                  <th className="text-left py-3 px-4 font-medium text-muted-foreground text-xs">Email</th>
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground text-xs">Status</th>
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground text-xs">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={5} className="py-8 text-center text-muted-foreground">Loading...</td></tr>
+                  <tr><td colSpan={6} className="py-8 text-center text-muted-foreground">Loading...</td></tr>
                 ) : stores.map(s => (
                   <tr key={s.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
                     <td className="py-3 px-4 font-medium flex items-center gap-2">
@@ -147,6 +154,7 @@ export default function StoreManagement() {
                     </td>
                     <td className="py-3 px-4 text-xs text-muted-foreground">{s.code || '—'}</td>
                     <td className="py-3 px-4 text-xs">{s.city || '—'}</td>
+                    <td className="py-3 px-4 text-xs text-muted-foreground">{s.email || '—'}</td>
                     <td className="py-3 px-4">
                       <Badge
                         variant={s.active ? 'default' : 'secondary'}

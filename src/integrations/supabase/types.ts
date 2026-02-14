@@ -140,6 +140,7 @@ export type Database = {
           city: string | null
           code: string | null
           created_at: string
+          email: string | null
           id: string
           name: string
         }
@@ -148,6 +149,7 @@ export type Database = {
           city?: string | null
           code?: string | null
           created_at?: string
+          email?: string | null
           id?: string
           name: string
         }
@@ -156,6 +158,7 @@ export type Database = {
           city?: string | null
           code?: string | null
           created_at?: string
+          email?: string | null
           id?: string
           name?: string
         }
