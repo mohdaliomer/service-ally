@@ -1,81 +1,84 @@
-import { useMemo } from 'react';
+import { useMemo, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { mockComplaints } from '@/lib/mock-data';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { StatusBadge, PriorityBadge } from '@/components/StatusBadge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
-  AlertTriangle,
-  CheckCircle2,
-  Clock,
-  FileWarning,
-  TrendingUp,
-  ArrowRight,
-  TimerOff,
+  AlertTriangle, CheckCircle2, Clock, FileWarning, TrendingUp, ArrowRight, TimerOff,
 } from 'lucide-react';
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
 } from 'recharts';
 
 const PIE_COLORS = [
-  'hsl(36, 95%, 52%)',
-  'hsl(217, 91%, 60%)',
-  'hsl(262, 83%, 58%)',
-  'hsl(25, 95%, 53%)',
-  'hsl(171, 77%, 40%)',
-  'hsl(142, 71%, 45%)',
+  'hsl(36, 95%, 52%)', 'hsl(217, 91%, 60%)', 'hsl(262, 83%, 58%)',
+  'hsl(25, 95%, 53%)', 'hsl(171, 77%, 40%)', 'hsl(142, 71%, 45%)',
 ];
 
+interface Complaint {
+  id: string;
+  created_at: string;
+  store: string;
+  department: string | null;
+  category: string;
+  description: string;
+  priority: string;
+  status: string;
+  reported_by_name: string;
+  assigned_to: string | null;
+  contact_number: string;
+}
+
 export default function Dashboard() {
-  const stats = useMemo(() => {
-    const total = mockComplaints.length;
-    const open = mockComplaints.filter(c => c.status === 'Open').length;
-    const inProgress = mockComplaints.filter(c => ['Assigned', 'In Progress'].includes(c.status)).length;
-    const closed = mockComplaints.filter(c => c.status === 'Closed').length;
-    const critical = mockComplaints.filter(c => c.priority === 'Critical').length;
-    return { total, open, inProgress, closed, critical };
+  const { isAdmin } = useAuth();
+  const [complaints, setComplaints] = useState<Complaint[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetch = async () => {
+      const { data } = await supabase.from('complaints').select('*').order('created_at', { ascending: false });
+      if (data) setComplaints(data);
+      setLoading(false);
+    };
+    fetch();
   }, []);
+
+  const stats = useMemo(() => {
+    const total = complaints.length;
+    const open = complaints.filter(c => c.status === 'Open').length;
+    const inProgress = complaints.filter(c => ['Assigned', 'In Progress'].includes(c.status)).length;
+    const closed = complaints.filter(c => c.status === 'Closed').length;
+    const critical = complaints.filter(c => c.priority === 'Critical').length;
+    return { total, open, inProgress, closed, critical };
+  }, [complaints]);
 
   const categoryData = useMemo(() => {
     const counts: Record<string, number> = {};
-    mockComplaints.forEach(c => {
-      counts[c.category] = (counts[c.category] || 0) + 1;
-    });
+    complaints.forEach(c => { counts[c.category] = (counts[c.category] || 0) + 1; });
     return Object.entries(counts).map(([name, value]) => ({ name, value }));
-  }, []);
+  }, [complaints]);
 
   const statusData = useMemo(() => {
     const counts: Record<string, number> = {};
-    mockComplaints.forEach(c => {
-      counts[c.status] = (counts[c.status] || 0) + 1;
-    });
+    complaints.forEach(c => { counts[c.status] = (counts[c.status] || 0) + 1; });
     return Object.entries(counts).map(([name, value]) => ({ name, value }));
-  }, []);
+  }, [complaints]);
 
   const overdue7Days = useMemo(() => {
-    const now = new Date();
-    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    return mockComplaints.filter(c => {
-      const isOpen = c.status !== 'Closed';
-      const created = new Date(c.dateTime);
-      return isOpen && created <= sevenDaysAgo;
-    });
-  }, []);
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    return complaints.filter(c => c.status !== 'Closed' && new Date(c.created_at) <= sevenDaysAgo);
+  }, [complaints]);
 
-  const recentComplaints = mockComplaints.slice(0, 5);
+  const recentComplaints = complaints.slice(0, 5);
+
+  if (loading) return <div className="py-20 text-center text-muted-foreground">Loading dashboard...</div>;
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Dashboard</h1>
-        <p className="text-muted-foreground text-sm mt-1">Overview of maintenance complaints across all locations</p>
+        <p className="text-muted-foreground text-sm mt-1">Overview of maintenance complaints{isAdmin ? ' across all locations' : ''}</p>
       </div>
 
       {/* Stat Cards */}
@@ -102,9 +105,7 @@ export default function Dashboard() {
       {/* Charts */}
       <div className="grid md:grid-cols-2 gap-4">
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">By Category</CardTitle>
-          </CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">By Category</CardTitle></CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={240}>
               <BarChart data={categoryData} layout="vertical" margin={{ left: 0 }}>
@@ -117,24 +118,12 @@ export default function Dashboard() {
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">By Status</CardTitle>
-          </CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">By Status</CardTitle></CardHeader>
           <CardContent className="flex items-center justify-center">
             <ResponsiveContainer width="100%" height={240}>
               <PieChart>
-                <Pie
-                  data={statusData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={55}
-                  outerRadius={90}
-                  dataKey="value"
-                  paddingAngle={3}
-                >
-                  {statusData.map((_, i) => (
-                    <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                  ))}
+                <Pie data={statusData} cx="50%" cy="50%" innerRadius={55} outerRadius={90} dataKey="value" paddingAngle={3}>
+                  {statusData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
                 </Pie>
                 <Tooltip />
               </PieChart>
@@ -149,13 +138,9 @@ export default function Dashboard() {
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <div className="flex items-center gap-2">
               <TimerOff className="w-4 h-4 text-priority-critical" />
-              <CardTitle className="text-sm font-semibold text-priority-critical">
-                Pending 7+ Days ({overdue7Days.length})
-              </CardTitle>
+              <CardTitle className="text-sm font-semibold text-priority-critical">Pending 7+ Days ({overdue7Days.length})</CardTitle>
             </div>
-            <Link to="/complaints" className="text-xs font-medium text-accent hover:underline flex items-center gap-1">
-              View all <ArrowRight className="w-3 h-3" />
-            </Link>
+            <Link to="/complaints" className="text-xs font-medium text-accent hover:underline flex items-center gap-1">View all <ArrowRight className="w-3 h-3" /></Link>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
@@ -173,22 +158,16 @@ export default function Dashboard() {
                 </thead>
                 <tbody>
                   {overdue7Days.map((c) => {
-                    const days = Math.floor((Date.now() - new Date(c.dateTime).getTime()) / (1000 * 60 * 60 * 24));
+                    const days = Math.floor((Date.now() - new Date(c.created_at).getTime()) / (1000 * 60 * 60 * 24));
                     return (
                       <tr key={c.id} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
-                        <td className="py-2.5 pr-4">
-                          <Link to={`/complaints/${c.id}`} className="font-mono text-xs font-medium text-accent hover:underline">
-                            {c.id}
-                          </Link>
-                        </td>
+                        <td className="py-2.5 pr-4"><Link to={`/complaints/${c.id}`} className="font-mono text-xs font-medium text-accent hover:underline">{c.id}</Link></td>
                         <td className="py-2.5 pr-4 text-xs">{c.store}</td>
                         <td className="py-2.5 pr-4 text-xs">{c.category}</td>
-                        <td className="py-2.5 pr-4">
-                          <span className="text-xs font-bold text-priority-critical">{days} days</span>
-                        </td>
-                        <td className="py-2.5 pr-4"><PriorityBadge priority={c.priority} /></td>
-                        <td className="py-2.5 pr-4"><StatusBadge status={c.status} /></td>
-                        <td className="py-2.5 text-xs text-muted-foreground">{c.assignedTo || '—'}</td>
+                        <td className="py-2.5 pr-4"><span className="text-xs font-bold text-priority-critical">{days} days</span></td>
+                        <td className="py-2.5 pr-4"><PriorityBadge priority={c.priority as any} /></td>
+                        <td className="py-2.5 pr-4"><StatusBadge status={c.status as any} /></td>
+                        <td className="py-2.5 text-xs text-muted-foreground">{c.assigned_to || '—'}</td>
                       </tr>
                     );
                   })}
@@ -203,9 +182,7 @@ export default function Dashboard() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-sm font-semibold">Recent Complaints</CardTitle>
-          <Link to="/complaints" className="text-xs font-medium text-accent hover:underline flex items-center gap-1">
-            View all <ArrowRight className="w-3 h-3" />
-          </Link>
+          <Link to="/complaints" className="text-xs font-medium text-accent hover:underline flex items-center gap-1">View all <ArrowRight className="w-3 h-3" /></Link>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -223,18 +200,17 @@ export default function Dashboard() {
               <tbody>
                 {recentComplaints.map((c) => (
                   <tr key={c.id} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
-                    <td className="py-2.5 pr-4">
-                      <Link to={`/complaints/${c.id}`} className="font-mono text-xs font-medium text-accent hover:underline">
-                        {c.id}
-                      </Link>
-                    </td>
+                    <td className="py-2.5 pr-4"><Link to={`/complaints/${c.id}`} className="font-mono text-xs font-medium text-accent hover:underline">{c.id}</Link></td>
                     <td className="py-2.5 pr-4 text-xs">{c.store}</td>
                     <td className="py-2.5 pr-4 text-xs">{c.category}</td>
-                    <td className="py-2.5 pr-4"><PriorityBadge priority={c.priority} /></td>
-                    <td className="py-2.5 pr-4"><StatusBadge status={c.status} /></td>
-                    <td className="py-2.5 text-xs text-muted-foreground">{c.assignedTo || '—'}</td>
+                    <td className="py-2.5 pr-4"><PriorityBadge priority={c.priority as any} /></td>
+                    <td className="py-2.5 pr-4"><StatusBadge status={c.status as any} /></td>
+                    <td className="py-2.5 text-xs text-muted-foreground">{c.assigned_to || '—'}</td>
                   </tr>
                 ))}
+                {complaints.length === 0 && (
+                  <tr><td colSpan={6} className="py-12 text-center text-muted-foreground">No complaints yet. Create your first one!</td></tr>
+                )}
               </tbody>
             </table>
           </div>

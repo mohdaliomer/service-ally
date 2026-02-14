@@ -8,11 +8,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { CATEGORIES, PRIORITIES, STORES, DEPARTMENTS } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { ImagePlus, X, FileImage } from 'lucide-react';
 
 export default function NewComplaint() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user, profile } = useAuth();
   const [form, setForm] = useState({
     store: '',
     department: '',
@@ -24,6 +27,7 @@ export default function NewComplaint() {
     remarks: '',
   });
   const [attachments, setAttachments] = useState<{ file: File; preview: string }[]>([]);
+  const [submitting, setSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const set = (key: string, value: string) => setForm(prev => ({ ...prev, [key]: value }));
@@ -47,13 +51,54 @@ export default function NewComplaint() {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.store || !form.category || !form.description || !form.priority || !form.contactNumber) {
       toast({ title: 'Missing fields', description: 'Please fill in all required fields.', variant: 'destructive' });
       return;
     }
-    toast({ title: 'Complaint submitted!', description: 'Your complaint has been registered successfully.' });
+    if (!user) return;
+
+    setSubmitting(true);
+
+    // Generate complaint ID
+    const { data: idData } = await supabase.rpc('generate_complaint_id');
+    const complaintId = idData || `CMP-${Date.now()}`;
+
+    const { error } = await supabase.from('complaints').insert({
+      id: complaintId,
+      store: form.store,
+      department: form.department || null,
+      category: form.category,
+      sub_category: form.subCategory || null,
+      description: form.description,
+      priority: form.priority,
+      contact_number: form.contactNumber,
+      remarks: form.remarks || null,
+      reported_by: user.id,
+      reported_by_name: profile?.full_name || user.email || 'Unknown',
+    });
+
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      setSubmitting(false);
+      return;
+    }
+
+    // Send notification (fire and forget)
+    supabase.functions.invoke('send-complaint-notification', {
+      body: {
+        complaint_id: complaintId,
+        department: form.department,
+        store: form.store,
+        category: form.category,
+        priority: form.priority,
+        description: form.description,
+        reported_by_name: profile?.full_name || user.email,
+      },
+    });
+
+    toast({ title: 'Complaint submitted!', description: `${complaintId} has been registered. Notifications sent to department team.` });
     navigate('/complaints');
   };
 
@@ -179,7 +224,9 @@ export default function NewComplaint() {
 
             <div className="flex justify-end gap-3 pt-2">
               <Button type="button" variant="outline" onClick={() => navigate('/complaints')}>Cancel</Button>
-              <Button type="submit" className="bg-accent text-accent-foreground hover:bg-accent/90">Submit Complaint</Button>
+              <Button type="submit" className="bg-accent text-accent-foreground hover:bg-accent/90" disabled={submitting}>
+                {submitting ? 'Submitting...' : 'Submit Complaint'}
+              </Button>
             </div>
           </CardContent>
         </Card>
