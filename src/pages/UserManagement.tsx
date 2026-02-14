@@ -188,6 +188,7 @@ export default function UserManagement() {
                 <Select value={form.store} onValueChange={v => setForm(f => ({ ...f, store: v }))}>
                   <SelectTrigger><SelectValue placeholder="Select store" /></SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="ALL">ALL</SelectItem>
                     {storesList.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                   </SelectContent>
                 </Select>
@@ -296,6 +297,7 @@ export default function UserManagement() {
               <Select value={editForm.store} onValueChange={v => setEditForm(f => ({ ...f, store: v }))}>
                 <SelectTrigger><SelectValue placeholder="Select store" /></SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="ALL">ALL</SelectItem>
                   {storesList.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                 </SelectContent>
               </Select>
