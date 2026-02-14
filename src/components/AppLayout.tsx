@@ -4,17 +4,23 @@ import {
   ListTodo,
   PlusCircle,
   Wrench,
+  Users,
+  LogOut,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-const navItems = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/complaints', label: 'Complaints', icon: ListTodo },
-  { to: '/complaints/new', label: 'New Complaint', icon: PlusCircle },
-];
+import { useAuth } from '@/contexts/AuthContext';
+import { Button } from '@/components/ui/button';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { pathname } = useLocation();
+  const { profile, isAdmin, signOut } = useAuth();
+
+  const navItems = [
+    { to: '/', label: 'Dashboard', icon: LayoutDashboard },
+    { to: '/complaints', label: 'Complaints', icon: ListTodo },
+    { to: '/complaints/new', label: 'New Complaint', icon: PlusCircle },
+    ...(isAdmin ? [{ to: '/users', label: 'Users', icon: Users }] : []),
+  ];
 
   return (
     <div className="flex min-h-screen">
@@ -31,7 +37,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
         <nav className="flex-1 px-3 py-4 space-y-1">
           {navItems.map(({ to, label, icon: Icon }) => {
-            const active = pathname === to || (to !== '/' && pathname.startsWith(to) && to === '/complaints' && pathname === '/complaints');
             const exactActive = pathname === to;
             return (
               <Link
@@ -50,16 +55,19 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             );
           })}
         </nav>
-        <div className="px-4 py-4 border-t border-sidebar-border">
+        <div className="px-4 py-4 border-t border-sidebar-border space-y-3">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-sidebar-accent flex items-center justify-center text-xs font-bold text-sidebar-foreground">
-              AD
+              {profile?.full_name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'U'}
             </div>
-            <div>
-              <p className="text-xs font-medium text-sidebar-foreground">Admin User</p>
-              <p className="text-[11px] text-sidebar-muted">admin@company.com</p>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium text-sidebar-foreground truncate">{profile?.full_name || 'User'}</p>
+              <p className="text-[11px] text-sidebar-muted truncate">{profile?.email}</p>
             </div>
           </div>
+          <Button variant="ghost" size="sm" className="w-full text-sidebar-muted hover:text-sidebar-foreground" onClick={signOut}>
+            <LogOut className="w-3 h-3 mr-2" /> Sign Out
+          </Button>
         </div>
       </aside>
 
@@ -88,10 +96,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 </Link>
               );
             })}
+            <button onClick={signOut} className="p-2 rounded-md text-sidebar-foreground">
+              <LogOut className="w-4 h-4" />
+            </button>
           </nav>
         </header>
 
-        {/* Main Content */}
         <main className="flex-1 overflow-auto">
           <div className="p-4 md:p-8 max-w-7xl mx-auto animate-fade-in">
             {children}
