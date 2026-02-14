@@ -32,10 +32,18 @@ export default function NewComplaint() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    supabase.from('stores').select('name').eq('active', true).order('name').then(({ data }) => {
-      if (data) setStoresList(data.map(s => s.name));
-    });
-  }, []);
+    const userStore = profile?.store;
+    if (userStore && userStore !== 'ALL') {
+      // User has a specific store assigned - only show that store
+      setStoresList([userStore]);
+      set('store', userStore);
+    } else {
+      // Admin or user with "ALL" - show all active stores
+      supabase.from('stores').select('name').eq('active', true).order('name').then(({ data }) => {
+        if (data) setStoresList(data.map(s => s.name));
+      });
+    }
+  }, [profile]);
 
   const set = (key: string, value: string) => setForm(prev => ({ ...prev, [key]: value }));
 
