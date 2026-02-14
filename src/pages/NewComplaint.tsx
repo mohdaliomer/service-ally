@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { CATEGORIES, PRIORITIES, STORES, DEPARTMENTS } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
+import { ImagePlus, X, FileImage } from 'lucide-react';
 
 export default function NewComplaint() {
   const navigate = useNavigate();
@@ -22,8 +23,29 @@ export default function NewComplaint() {
     contactNumber: '',
     remarks: '',
   });
+  const [attachments, setAttachments] = useState<{ file: File; preview: string }[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const set = (key: string, value: string) => setForm(prev => ({ ...prev, [key]: value }));
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    const newAttachments = Array.from(files).map(file => ({
+      file,
+      preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : '',
+    }));
+    setAttachments(prev => [...prev, ...newAttachments].slice(0, 10));
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachments(prev => {
+      const removed = prev[index];
+      if (removed.preview) URL.revokeObjectURL(removed.preview);
+      return prev.filter((_, i) => i !== index);
+    });
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,6 +126,50 @@ export default function NewComplaint() {
                 <Label>Contact Number *</Label>
                 <Input value={form.contactNumber} onChange={e => set('contactNumber', e.target.value)} placeholder="+91 98765 43210" />
               </div>
+            </div>
+
+            {/* Attachments */}
+            <div className="space-y-2">
+              <Label>Attachments <span className="text-muted-foreground text-xs">(photos/documents, max 10)</span></Label>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept="image/*,.pdf,.doc,.docx"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="border-2 border-dashed border-border rounded-lg p-6 text-center cursor-pointer hover:border-accent/50 hover:bg-muted/30 transition-colors"
+              >
+                <ImagePlus className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
+                <p className="text-sm text-muted-foreground">Click to upload photos or documents</p>
+                <p className="text-xs text-muted-foreground mt-1">JPG, PNG, PDF, DOC up to 20MB each</p>
+              </div>
+              {attachments.length > 0 && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
+                  {attachments.map((att, i) => (
+                    <div key={i} className="relative group rounded-lg border border-border overflow-hidden bg-muted/30">
+                      {att.preview ? (
+                        <img src={att.preview} alt={att.file.name} className="w-full h-24 object-cover" />
+                      ) : (
+                        <div className="w-full h-24 flex items-center justify-center">
+                          <FileImage className="w-8 h-8 text-muted-foreground" />
+                        </div>
+                      )}
+                      <p className="text-[10px] text-muted-foreground truncate px-2 py-1">{att.file.name}</p>
+                      <button
+                        type="button"
+                        onClick={() => removeAttachment(i)}
+                        className="absolute top-1 right-1 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">
