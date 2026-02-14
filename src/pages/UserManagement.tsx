@@ -198,6 +198,7 @@ export default function UserManagement() {
                 <Select value={form.department} onValueChange={v => setForm(f => ({ ...f, department: v }))}>
                   <SelectTrigger><SelectValue placeholder="Select department" /></SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="ALL">ALL</SelectItem>
                     {DEPARTMENTS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
                   </SelectContent>
                 </Select>
@@ -307,6 +308,7 @@ export default function UserManagement() {
               <Select value={editForm.department} onValueChange={v => setEditForm(f => ({ ...f, department: v }))}>
                 <SelectTrigger><SelectValue placeholder="Select department" /></SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="ALL">ALL</SelectItem>
                   {DEPARTMENTS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
                 </SelectContent>
               </Select>
