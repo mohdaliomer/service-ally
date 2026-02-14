@@ -10,6 +10,7 @@ import {
   FileWarning,
   TrendingUp,
   ArrowRight,
+  TimerOff,
 } from 'lucide-react';
 import {
   BarChart,
@@ -56,6 +57,16 @@ export default function Dashboard() {
       counts[c.status] = (counts[c.status] || 0) + 1;
     });
     return Object.entries(counts).map(([name, value]) => ({ name, value }));
+  }, []);
+
+  const overdue7Days = useMemo(() => {
+    const now = new Date();
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    return mockComplaints.filter(c => {
+      const isOpen = c.status !== 'Closed';
+      const created = new Date(c.dateTime);
+      return isOpen && created <= sevenDaysAgo;
+    });
   }, []);
 
   const recentComplaints = mockComplaints.slice(0, 5);
@@ -131,6 +142,62 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Pending 7+ Days */}
+      {overdue7Days.length > 0 && (
+        <Card className="border-priority-critical/30 bg-priority-critical/5">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <div className="flex items-center gap-2">
+              <TimerOff className="w-4 h-4 text-priority-critical" />
+              <CardTitle className="text-sm font-semibold text-priority-critical">
+                Pending 7+ Days ({overdue7Days.length})
+              </CardTitle>
+            </div>
+            <Link to="/complaints" className="text-xs font-medium text-accent hover:underline flex items-center gap-1">
+              View all <ArrowRight className="w-3 h-3" />
+            </Link>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-muted-foreground">
+                    <th className="text-left py-2 pr-4 font-medium">ID</th>
+                    <th className="text-left py-2 pr-4 font-medium">Store</th>
+                    <th className="text-left py-2 pr-4 font-medium">Category</th>
+                    <th className="text-left py-2 pr-4 font-medium">Days Pending</th>
+                    <th className="text-left py-2 pr-4 font-medium">Priority</th>
+                    <th className="text-left py-2 pr-4 font-medium">Status</th>
+                    <th className="text-left py-2 font-medium">Assigned To</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {overdue7Days.map((c) => {
+                    const days = Math.floor((Date.now() - new Date(c.dateTime).getTime()) / (1000 * 60 * 60 * 24));
+                    return (
+                      <tr key={c.id} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
+                        <td className="py-2.5 pr-4">
+                          <Link to={`/complaints/${c.id}`} className="font-mono text-xs font-medium text-accent hover:underline">
+                            {c.id}
+                          </Link>
+                        </td>
+                        <td className="py-2.5 pr-4 text-xs">{c.store}</td>
+                        <td className="py-2.5 pr-4 text-xs">{c.category}</td>
+                        <td className="py-2.5 pr-4">
+                          <span className="text-xs font-bold text-priority-critical">{days} days</span>
+                        </td>
+                        <td className="py-2.5 pr-4"><PriorityBadge priority={c.priority} /></td>
+                        <td className="py-2.5 pr-4"><StatusBadge status={c.status} /></td>
+                        <td className="py-2.5 text-xs text-muted-foreground">{c.assignedTo || '—'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Recent Complaints */}
       <Card>
