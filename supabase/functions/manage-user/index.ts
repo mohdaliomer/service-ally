@@ -68,13 +68,18 @@ Deno.serve(async (req) => {
     }
 
     if (action === 'delete') {
-      // Check if user has complaints
-      const { count } = await supabaseAdmin.from('complaints').select('id', { count: 'exact', head: true }).eq('reported_by', user_id);
-      if (count && count > 0) {
-        return new Response(JSON.stringify({ error: `Cannot delete user: they have ${count} complaint(s). Reassign or delete complaints first.` }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      // Get user's complaints to clean up related data
+      const { data: userComplaints } = await supabaseAdmin.from('complaints').select('id').eq('reported_by', user_id);
+      const complaintIds = userComplaints?.map(c => c.id) || [];
+
+      if (complaintIds.length > 0) {
+        // Delete complaint attachments, workflow actions, then complaints
+        await supabaseAdmin.from('complaint_attachments').delete().in('complaint_id', complaintIds);
+        await supabaseAdmin.from('workflow_actions').delete().in('complaint_id', complaintIds);
+        await supabaseAdmin.from('complaints').delete().eq('reported_by', user_id);
       }
 
-      // Clean up related data first
+      // Clean up user-level data
       await supabaseAdmin.from('complaint_attachments').delete().eq('uploaded_by', user_id);
       await supabaseAdmin.from('workflow_actions').delete().eq('actor_id', user_id);
       await supabaseAdmin.from('user_roles').delete().eq('user_id', user_id);
