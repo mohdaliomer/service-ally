@@ -1,5 +1,5 @@
 import { useParams, Link } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { StatusBadge, PriorityBadge } from '@/components/StatusBadge';
@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Calendar, MapPin, Phone, User, Wrench, CheckCircle2, XCircle, Clock } from 'lucide-react';
+import { ArrowLeft, Calendar, MapPin, Phone, User, Wrench, CheckCircle2, XCircle, Clock, Download, ImagePlus, FileImage, Paperclip, X } from 'lucide-react';
 import {
   getCurrentStageInfo,
   getStagesForFlow,
@@ -51,27 +51,76 @@ interface ActionRow {
   created_at: string;
 }
 
+interface AttachmentRow {
+  id: string;
+  file_name: string;
+  file_path: string;
+  file_size: number | null;
+  content_type: string | null;
+  created_at: string;
+}
+
 export default function ComplaintDetail() {
   const { id } = useParams();
   const { user, role, profile } = useAuth();
   const { toast } = useToast();
   const [request, setRequest] = useState<RequestRow | null>(null);
   const [actions, setActions] = useState<ActionRow[]>([]);
+  const [attachments, setAttachments] = useState<AttachmentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionNotes, setActionNotes] = useState('');
   const [acting, setActing] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchData = async () => {
-    const [reqRes, actRes] = await Promise.all([
+    const [reqRes, actRes, attRes] = await Promise.all([
       supabase.from('complaints').select('*').eq('id', id).single(),
       supabase.from('workflow_actions').select('*').eq('complaint_id', id).order('created_at', { ascending: true }),
+      supabase.from('complaint_attachments').select('*').eq('complaint_id', id).order('created_at', { ascending: true }),
     ]);
     if (reqRes.data) setRequest(reqRes.data as RequestRow);
     if (actRes.data) setActions(actRes.data);
+    if (attRes.data) setAttachments(attRes.data as AttachmentRow[]);
     setLoading(false);
   };
 
   useEffect(() => { fetchData(); }, [id]);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || !user || !request) return;
+    setUploading(true);
+    for (const file of Array.from(files)) {
+      const filePath = `${user.id}/${request.id}/${Date.now()}-${file.name}`;
+      const { error: uploadError } = await supabase.storage
+        .from('complaint-attachments')
+        .upload(filePath, file, { contentType: file.type });
+      if (!uploadError) {
+        await supabase.from('complaint_attachments').insert({
+          complaint_id: request.id,
+          file_name: file.name,
+          file_path: filePath,
+          file_size: file.size,
+          content_type: file.type,
+          uploaded_by: user.id,
+        });
+      }
+    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    setUploading(false);
+    fetchData();
+    toast({ title: 'Files uploaded successfully' });
+  };
+
+  const handleDownload = async (att: AttachmentRow) => {
+    const { data } = await supabase.storage
+      .from('complaint-attachments')
+      .createSignedUrl(att.file_path, 300);
+    if (data?.signedUrl) {
+      window.open(data.signedUrl, '_blank');
+    }
+  };
 
   const handleAction = async (action: WorkflowAction) => {
     if (!request || !user || !role) return;
@@ -285,7 +334,58 @@ export default function ComplaintDetail() {
         </Card>
       )}
 
-      {/* Workflow Action Log */}
+      {/* Attachments */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Paperclip className="w-4 h-4" /> Attachments ({attachments.length})
+            </CardTitle>
+            <div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept="image/*,.pdf,.doc,.docx"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+              >
+                <ImagePlus className="w-3 h-3 mr-1" />
+                {uploading ? 'Uploading...' : 'Upload'}
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {attachments.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">No attachments yet</p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {attachments.map(att => (
+                <div key={att.id} className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30">
+                  <FileImage className="w-8 h-8 text-muted-foreground shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{att.file_name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {att.file_size ? `${(att.file_size / 1024).toFixed(1)} KB` : ''} · {new Date(att.created_at).toLocaleDateString('en-IN')}
+                    </p>
+                  </div>
+                  <Button variant="ghost" size="icon" onClick={() => handleDownload(att)} title="Download">
+                    <Download className="w-4 h-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {actions.length > 0 && (
         <Card>
           <CardHeader className="pb-3"><CardTitle className="text-sm">Workflow History</CardTitle></CardHeader>

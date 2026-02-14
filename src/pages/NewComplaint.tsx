@@ -101,6 +101,26 @@ export default function NewComplaint() {
       return;
     }
 
+    // Upload attachments to storage
+    if (attachments.length > 0) {
+      for (const att of attachments) {
+        const filePath = `${user.id}/${complaintId}/${Date.now()}-${att.file.name}`;
+        const { error: uploadError } = await supabase.storage
+          .from('complaint-attachments')
+          .upload(filePath, att.file, { contentType: att.file.type });
+        if (!uploadError) {
+          await supabase.from('complaint_attachments').insert({
+            complaint_id: complaintId,
+            file_name: att.file.name,
+            file_path: filePath,
+            file_size: att.file.size,
+            content_type: att.file.type,
+            uploaded_by: user.id,
+          });
+        }
+      }
+    }
+
     // Log the submission action
     await supabase.from('workflow_actions').insert({
       complaint_id: complaintId,
