@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { STORES, DEPARTMENTS } from '@/lib/types';
+import { DEPARTMENTS } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { UserPlus, Users, Shield, User } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -35,6 +35,12 @@ export default function UserManagement() {
     store: '',
     role: 'local_user' as 'admin' | 'local_user',
   });
+  const [storesList, setStoresList] = useState<string[]>([]);
+
+  const fetchStores = async () => {
+    const { data } = await supabase.from('stores').select('name').eq('active', true).order('name');
+    if (data) setStoresList(data.map(s => s.name));
+  };
 
   const fetchUsers = async () => {
     const { data: profiles } = await supabase.from('profiles').select('*');
@@ -54,7 +60,7 @@ export default function UserManagement() {
     setLoading(false);
   };
 
-  useEffect(() => { fetchUsers(); }, []);
+  useEffect(() => { fetchUsers(); fetchStores(); }, []);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -142,7 +148,7 @@ export default function UserManagement() {
                 <Select value={form.store} onValueChange={v => setForm(f => ({ ...f, store: v }))}>
                   <SelectTrigger><SelectValue placeholder="Select store" /></SelectTrigger>
                   <SelectContent>
-                    {STORES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                    {storesList.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
