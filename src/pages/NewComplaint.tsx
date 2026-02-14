@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { CATEGORIES, PRIORITIES, STORES, DEPARTMENTS } from '@/lib/types';
+import { CATEGORIES, PRIORITIES, DEPARTMENTS } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -28,7 +28,14 @@ export default function NewComplaint() {
   });
   const [attachments, setAttachments] = useState<{ file: File; preview: string }[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [storesList, setStoresList] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    supabase.from('stores').select('name').eq('active', true).order('name').then(({ data }) => {
+      if (data) setStoresList(data.map(s => s.name));
+    });
+  }, []);
 
   const set = (key: string, value: string) => setForm(prev => ({ ...prev, [key]: value }));
 
@@ -121,7 +128,7 @@ export default function NewComplaint() {
                 <Select value={form.store} onValueChange={v => set('store', v)}>
                   <SelectTrigger><SelectValue placeholder="Select store" /></SelectTrigger>
                   <SelectContent>
-                    {STORES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                    {storesList.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>

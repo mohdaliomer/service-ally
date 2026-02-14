@@ -5,6 +5,7 @@ import {
   PlusCircle,
   Wrench,
   Users,
+  Store,
   LogOut,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -19,7 +20,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     { to: '/', label: 'Dashboard', icon: LayoutDashboard },
     { to: '/complaints', label: 'Complaints', icon: ListTodo },
     { to: '/complaints/new', label: 'New Complaint', icon: PlusCircle },
-    ...(isAdmin ? [{ to: '/users', label: 'Users', icon: Users }] : []),
+    ...(isAdmin ? [
+      { to: '/users', label: 'Users', icon: Users },
+      { to: '/stores', label: 'Stores', icon: Store },
+    ] : []),
   ];
 
   return (

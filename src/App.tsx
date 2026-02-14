@@ -10,6 +10,7 @@ import ComplaintsList from "@/pages/ComplaintsList";
 import ComplaintDetail from "@/pages/ComplaintDetail";
 import NewComplaint from "@/pages/NewComplaint";
 import UserManagement from "@/pages/UserManagement";
+import StoreManagement from "@/pages/StoreManagement";
 import Login from "@/pages/Login";
 import Setup from "@/pages/Setup";
 import NotFound from "./pages/NotFound";
@@ -36,6 +37,7 @@ function AppRoutes() {
       <Route path="/complaints/new" element={<ProtectedRoute><AppLayout><NewComplaint /></AppLayout></ProtectedRoute>} />
       <Route path="/complaints/:id" element={<ProtectedRoute><AppLayout><ComplaintDetail /></AppLayout></ProtectedRoute>} />
       <Route path="/users" element={<ProtectedRoute><AppLayout><UserManagement /></AppLayout></ProtectedRoute>} />
+      <Route path="/stores" element={<ProtectedRoute><AppLayout><StoreManagement /></AppLayout></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
