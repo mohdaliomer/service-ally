@@ -34,9 +34,12 @@ export type RequestStatus =
   | 'Internal-Pending-SM'
   | 'Completed-Internal'
   // External path
-  | 'External-Pending-Admin'
-  | 'External-Pending-MC'
+  | 'External-Pending-RM'
+  | 'External-Pending-MC-QC'
   | 'External-Pending-MM'
+  | 'External-Pending-Admin'
+  | 'External-Pending-MC-2'
+  | 'External-Pending-MM-2'
   | 'External-Pending-SM'
   | 'Completed-External'
   // Rejection
@@ -49,9 +52,12 @@ export const ALL_STATUSES: RequestStatus[] = [
   'Internal-Pending-MM',
   'Internal-Pending-SM',
   'Completed-Internal',
-  'External-Pending-Admin',
-  'External-Pending-MC',
+  'External-Pending-RM',
+  'External-Pending-MC-QC',
   'External-Pending-MM',
+  'External-Pending-Admin',
+  'External-Pending-MC-2',
+  'External-Pending-MM-2',
   'External-Pending-SM',
   'Completed-External',
   'Rejected',
@@ -119,10 +125,8 @@ export const INTERNAL_STAGES: StageInfo[] = [
     actorLabel: 'Maintenance Manager',
     actions: [
       { action: 'approve', label: 'Approve', variant: 'default' },
-      { action: 'reject', label: 'Reject', variant: 'destructive' },
     ],
     nextStatus: 'Internal-Pending-SM',
-    rejectStatus: 'Rejected',
   },
   {
     stage: 5,
@@ -137,23 +141,25 @@ export const INTERNAL_STAGES: StageInfo[] = [
   },
 ];
 
-// External path: Stage 4 → 5 → 6 → 7 → Completed
+// External path: RM → MC QC → MM → Admin → MC → MM → SM → Completed
 export const EXTERNAL_STAGES: StageInfo[] = [
   {
     stage: 4,
-    label: 'Admin Manager Approval',
-    status: 'External-Pending-Admin',
-    actorRole: 'admin_manager',
-    actorLabel: 'Admin Manager',
+    label: 'Regional Manager Approval',
+    status: 'External-Pending-RM',
+    actorRole: 'regional_manager',
+    actorLabel: 'Regional Manager',
     actions: [
       { action: 'approve', label: 'Approve', variant: 'default' },
+      { action: 'reject', label: 'Reject', variant: 'destructive' },
     ],
-    nextStatus: 'External-Pending-MC',
+    nextStatus: 'External-Pending-MC-QC',
+    rejectStatus: 'Rejected',
   },
   {
     stage: 5,
     label: 'Maintenance Coordinator Quality Check',
-    status: 'External-Pending-MC',
+    status: 'External-Pending-MC-QC',
     actorRole: 'maintenance_coordinator',
     actorLabel: 'Maintenance Coordinator',
     actions: [
@@ -171,10 +177,45 @@ export const EXTERNAL_STAGES: StageInfo[] = [
     actions: [
       { action: 'approve', label: 'Approve', variant: 'default' },
     ],
-    nextStatus: 'External-Pending-SM',
+    nextStatus: 'External-Pending-Admin',
   },
   {
     stage: 7,
+    label: 'Admin Manager Approval',
+    status: 'External-Pending-Admin',
+    actorRole: 'admin_manager',
+    actorLabel: 'Admin Manager',
+    actions: [
+      { action: 'approve', label: 'Approve', variant: 'default' },
+      { action: 'reject', label: 'Reject', variant: 'destructive' },
+    ],
+    nextStatus: 'External-Pending-MC-2',
+    rejectStatus: 'Rejected',
+  },
+  {
+    stage: 8,
+    label: 'Maintenance Coordinator Acknowledge',
+    status: 'External-Pending-MC-2',
+    actorRole: 'maintenance_coordinator',
+    actorLabel: 'Maintenance Coordinator',
+    actions: [
+      { action: 'acknowledge', label: 'Acknowledge & Forward', variant: 'default' },
+    ],
+    nextStatus: 'External-Pending-MM-2',
+  },
+  {
+    stage: 9,
+    label: 'Maintenance Manager Final Approval',
+    status: 'External-Pending-MM-2',
+    actorRole: 'maintenance_manager',
+    actorLabel: 'Maintenance Manager',
+    actions: [
+      { action: 'approve', label: 'Approve', variant: 'default' },
+    ],
+    nextStatus: 'External-Pending-SM',
+  },
+  {
+    stage: 10,
     label: 'Store Manager Verify & Close',
     status: 'External-Pending-SM',
     actorRole: 'store_manager',
@@ -211,7 +252,7 @@ export function getNextStatusAfterAction(
       return { nextStatus: 'Internal-Pending-MM', nextStage: 4 };
     }
     if (action === 'decide_external') {
-      return { nextStatus: 'External-Pending-Admin', nextStage: 4 };
+      return { nextStatus: 'External-Pending-RM', nextStage: 4 };
     }
   }
 
