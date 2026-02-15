@@ -29,15 +29,15 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      <Card className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-accent/5 px-4">
+      <Card className="w-full max-w-md shadow-[0_4px_12px_-2px_hsl(230_35%_12%/0.08),0_12px_36px_-6px_hsl(230_35%_12%/0.12)]">
         <CardHeader className="text-center space-y-3">
           <div className="flex items-center justify-center gap-2">
-            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary">
-              <Wrench className="w-5 h-5 text-primary-foreground" />
+            <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-primary shadow-[0_4px_12px_-2px_hsl(230_55%_22%/0.3)]">
+              <Wrench className="w-6 h-6 text-primary-foreground" />
             </div>
           </div>
-          <CardTitle className="text-xl">MaintainX Login</CardTitle>
+          <CardTitle className="text-2xl">MaintainX Login</CardTitle>
           <p className="text-sm text-muted-foreground">Sign in to the Complaint Register</p>
         </CardHeader>
         <CardContent>
