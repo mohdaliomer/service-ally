@@ -12,6 +12,7 @@ import NewComplaint from "@/pages/NewComplaint";
 import UserManagement from "@/pages/UserManagement";
 import StoreManagement from "@/pages/StoreManagement";
 import RegionManagement from "@/pages/RegionManagement";
+import DepartmentCategoryManagement from "@/pages/DepartmentCategoryManagement";
 import Login from "@/pages/Login";
 import Setup from "@/pages/Setup";
 import NotFound from "./pages/NotFound";
@@ -44,6 +45,7 @@ function AppRoutes() {
       <Route path="/users" element={<ProtectedRoute><AppLayout><UserManagement /></AppLayout></ProtectedRoute>} />
       <Route path="/stores" element={<ProtectedRoute><AppLayout><StoreManagement /></AppLayout></ProtectedRoute>} />
       <Route path="/regions" element={<ProtectedRoute><AppLayout><RegionManagement /></AppLayout></ProtectedRoute>} />
+      <Route path="/config" element={<ProtectedRoute><AppLayout><DepartmentCategoryManagement /></AppLayout></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

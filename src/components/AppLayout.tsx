@@ -8,6 +8,7 @@ import {
   Store,
   MapPinned,
   LogOut,
+  Settings,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -25,6 +26,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       { to: '/users', label: 'Users', icon: Users },
       { to: '/stores', label: 'Stores', icon: Store },
       { to: '/regions', label: 'Regions', icon: MapPinned },
+      { to: '/config', label: 'Config', icon: Settings },
     ] : []),
   ];
 
