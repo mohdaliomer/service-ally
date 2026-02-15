@@ -33,9 +33,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen">
       {/* Sidebar */}
-      <aside className="hidden md:flex w-64 flex-col bg-sidebar border-r border-sidebar-border">
+      <aside className="hidden md:flex w-64 flex-col bg-sidebar border-r border-sidebar-border shadow-[2px_0_12px_-4px_hsl(230_45%_12%/0.2)]">
         <div className="flex items-center gap-2.5 px-6 py-5 border-b border-sidebar-border">
-          <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-sidebar-primary">
+          <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-sidebar-primary shadow-[0_2px_8px_-2px_hsl(32_100%_50%/0.4)]">
             <Wrench className="w-5 h-5 text-sidebar-primary-foreground" />
           </div>
           <div>
