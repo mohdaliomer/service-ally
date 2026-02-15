@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { CATEGORIES, PRIORITIES, DEPARTMENTS } from '@/lib/types';
+import { PRIORITIES } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -29,16 +29,24 @@ export default function NewComplaint() {
   const [attachments, setAttachments] = useState<{ file: File; preview: string }[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [storesList, setStoresList] = useState<string[]>([]);
+  const [departmentsList, setDepartmentsList] = useState<string[]>([]);
+  const [categoriesList, setCategoriesList] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    // Fetch departments and categories from DB
+    supabase.from('departments').select('name').eq('active', true).order('name').then(({ data }) => {
+      if (data) setDepartmentsList(data.map(d => d.name));
+    });
+    supabase.from('categories').select('name').eq('active', true).order('name').then(({ data }) => {
+      if (data) setCategoriesList(data.map(c => c.name));
+    });
+
     const userStore = profile?.store;
     if (userStore && userStore !== 'ALL') {
-      // User has a specific store assigned - only show that store
       setStoresList([userStore]);
       set('store', userStore);
     } else {
-      // Admin or user with "ALL" - show all active stores
       supabase.from('stores').select('name').eq('active', true).order('name').then(({ data }) => {
         if (data) setStoresList(data.map(s => s.name));
       });
@@ -176,7 +184,7 @@ export default function NewComplaint() {
                 <Select value={form.department} onValueChange={v => set('department', v)}>
                   <SelectTrigger><SelectValue placeholder="Select department" /></SelectTrigger>
                   <SelectContent>
-                    {DEPARTMENTS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                    {departmentsList.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -188,7 +196,7 @@ export default function NewComplaint() {
                 <Select value={form.category} onValueChange={v => set('category', v)}>
                   <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
                   <SelectContent>
-                    {CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    {categoriesList.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
