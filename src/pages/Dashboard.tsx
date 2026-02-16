@@ -4,8 +4,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { StatusBadge, PriorityBadge } from '@/components/StatusBadge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
-  AlertTriangle, CheckCircle2, Clock, FileWarning, TrendingUp, ArrowRight, TimerOff,
+  AlertTriangle, CheckCircle2, Clock, FileWarning, TrendingUp, ArrowRight, TimerOff, Building2, MapPinned,
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
@@ -30,18 +31,156 @@ interface Complaint {
   contact_number: string;
 }
 
+interface StoreRow {
+  name: string;
+  region_id: string | null;
+}
+
+interface RegionRow {
+  id: string;
+  name: string;
+}
+
+function getStatusGroup(status: string): string {
+  if (status === 'Submitted') return 'Submitted';
+  if (status === 'Completed-Internal' || status === 'Completed-External') return 'Completed';
+  if (status === 'Rejected') return 'Rejected';
+  return 'In Progress';
+}
+
+const STATUS_GROUPS = ['Submitted', 'In Progress', 'Completed', 'Rejected'] as const;
+
+function GroupedStatusTable({ complaints, groupBy }: { complaints: Complaint[]; groupBy: 'department' | 'region'; }) {
+  // Group by the key
+  const grouped = useMemo(() => {
+    const map: Record<string, Record<string, number>> = {};
+    complaints.forEach(c => {
+      const key = groupBy === 'department' ? (c.department || 'Unassigned') : (c.store || 'Unknown');
+      if (!map[key]) map[key] = {};
+      const sg = getStatusGroup(c.status);
+      map[key][sg] = (map[key][sg] || 0) + 1;
+    });
+    return Object.entries(map)
+      .map(([name, counts]) => ({
+        name,
+        ...Object.fromEntries(STATUS_GROUPS.map(s => [s, counts[s] || 0])),
+        total: Object.values(counts).reduce((a, b) => a + b, 0),
+      }))
+      .sort((a, b) => b.total - a.total);
+  }, [complaints, groupBy]);
+
+  if (grouped.length === 0) return <p className="text-sm text-muted-foreground text-center py-6">No data available</p>;
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b text-muted-foreground">
+            <th className="text-left py-2 pr-4 font-medium">{groupBy === 'department' ? 'Department' : 'Store / Region'}</th>
+            {STATUS_GROUPS.map(s => (
+              <th key={s} className="text-center py-2 px-2 font-medium">{s}</th>
+            ))}
+            <th className="text-center py-2 pl-2 font-medium">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {grouped.map(row => (
+            <tr key={row.name} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
+              <td className="py-2.5 pr-4 text-xs font-medium">{row.name}</td>
+              <td className="py-2.5 px-2 text-center"><span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-600 font-semibold">{(row as any)['Submitted']}</span></td>
+              <td className="py-2.5 px-2 text-center"><span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 font-semibold">{(row as any)['In Progress']}</span></td>
+              <td className="py-2.5 px-2 text-center"><span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 font-semibold">{(row as any)['Completed']}</span></td>
+              <td className="py-2.5 px-2 text-center"><span className="text-xs px-2 py-0.5 rounded-full bg-red-500/15 text-red-600 font-semibold">{(row as any)['Rejected']}</span></td>
+              <td className="py-2.5 pl-2 text-center text-xs font-bold">{row.total}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function RegionGroupedTable({ complaints, stores, regions }: { complaints: Complaint[]; stores: StoreRow[]; regions: RegionRow[] }) {
+  const regionMap = useMemo(() => {
+    const storeToRegion: Record<string, string> = {};
+    const regionNames: Record<string, string> = {};
+    regions.forEach(r => { regionNames[r.id] = r.name; });
+    stores.forEach(s => {
+      if (s.region_id && regionNames[s.region_id]) {
+        storeToRegion[s.name] = regionNames[s.region_id];
+      }
+    });
+    return storeToRegion;
+  }, [stores, regions]);
+
+  const grouped = useMemo(() => {
+    const map: Record<string, Record<string, number>> = {};
+    complaints.forEach(c => {
+      const region = regionMap[c.store] || 'Unassigned Region';
+      if (!map[region]) map[region] = {};
+      const sg = getStatusGroup(c.status);
+      map[region][sg] = (map[region][sg] || 0) + 1;
+    });
+    return Object.entries(map)
+      .map(([name, counts]) => ({
+        name,
+        ...Object.fromEntries(STATUS_GROUPS.map(s => [s, counts[s] || 0])),
+        total: Object.values(counts).reduce((a, b) => a + b, 0),
+      }))
+      .sort((a, b) => b.total - a.total);
+  }, [complaints, regionMap]);
+
+  if (grouped.length === 0) return <p className="text-sm text-muted-foreground text-center py-6">No data available</p>;
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b text-muted-foreground">
+            <th className="text-left py-2 pr-4 font-medium">Region</th>
+            {STATUS_GROUPS.map(s => (
+              <th key={s} className="text-center py-2 px-2 font-medium">{s}</th>
+            ))}
+            <th className="text-center py-2 pl-2 font-medium">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {grouped.map(row => (
+            <tr key={row.name} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
+              <td className="py-2.5 pr-4 text-xs font-medium">{row.name}</td>
+              <td className="py-2.5 px-2 text-center"><span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-600 font-semibold">{(row as any)['Submitted']}</span></td>
+              <td className="py-2.5 px-2 text-center"><span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 font-semibold">{(row as any)['In Progress']}</span></td>
+              <td className="py-2.5 px-2 text-center"><span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 font-semibold">{(row as any)['Completed']}</span></td>
+              <td className="py-2.5 px-2 text-center"><span className="text-xs px-2 py-0.5 rounded-full bg-red-500/15 text-red-600 font-semibold">{(row as any)['Rejected']}</span></td>
+              <td className="py-2.5 pl-2 text-center text-xs font-bold">{row.total}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const { isAdmin } = useAuth();
   const [complaints, setComplaints] = useState<Complaint[]>([]);
+  const [stores, setStores] = useState<StoreRow[]>([]);
+  const [regions, setRegions] = useState<RegionRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetch = async () => {
-      const { data } = await supabase.from('complaints').select('*').order('created_at', { ascending: false });
-      if (data) setComplaints(data);
+    const fetchAll = async () => {
+      const [cRes, sRes, rRes] = await Promise.all([
+        supabase.from('complaints').select('*').order('created_at', { ascending: false }),
+        supabase.from('stores').select('name, region_id'),
+        supabase.from('regions').select('id, name'),
+      ]);
+      if (cRes.data) setComplaints(cRes.data);
+      if (sRes.data) setStores(sRes.data);
+      if (rRes.data) setRegions(rRes.data);
       setLoading(false);
     };
-    fetch();
+    fetchAll();
   }, []);
 
   const stats = useMemo(() => {
@@ -101,6 +240,37 @@ export default function Dashboard() {
           </Card>
         ))}
       </div>
+
+      {/* Department & Region Breakdown */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-semibold">Task Status Breakdown</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Tabs defaultValue="department">
+            <TabsList className="mb-3">
+              <TabsTrigger value="department" className="text-xs gap-1.5">
+                <Building2 className="w-3.5 h-3.5" /> By Department
+              </TabsTrigger>
+              <TabsTrigger value="region" className="text-xs gap-1.5">
+                <MapPinned className="w-3.5 h-3.5" /> By Region
+              </TabsTrigger>
+              <TabsTrigger value="user" className="text-xs gap-1.5">
+                By Assigned User
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="department">
+              <GroupedStatusTable complaints={complaints} groupBy="department" />
+            </TabsContent>
+            <TabsContent value="region">
+              <RegionGroupedTable complaints={complaints} stores={stores} regions={regions} />
+            </TabsContent>
+            <TabsContent value="user">
+              <UserGroupedTable complaints={complaints} />
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
 
       {/* Charts */}
       <div className="grid md:grid-cols-2 gap-4">
@@ -216,6 +386,55 @@ export default function Dashboard() {
           </div>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function UserGroupedTable({ complaints }: { complaints: Complaint[] }) {
+  const grouped = useMemo(() => {
+    const map: Record<string, Record<string, number>> = {};
+    complaints.forEach(c => {
+      const key = c.assigned_to || 'Unassigned';
+      if (!map[key]) map[key] = {};
+      const sg = getStatusGroup(c.status);
+      map[key][sg] = (map[key][sg] || 0) + 1;
+    });
+    return Object.entries(map)
+      .map(([name, counts]) => ({
+        name,
+        ...Object.fromEntries(STATUS_GROUPS.map(s => [s, counts[s] || 0])),
+        total: Object.values(counts).reduce((a, b) => a + b, 0),
+      }))
+      .sort((a, b) => b.total - a.total);
+  }, [complaints]);
+
+  if (grouped.length === 0) return <p className="text-sm text-muted-foreground text-center py-6">No data available</p>;
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b text-muted-foreground">
+            <th className="text-left py-2 pr-4 font-medium">Assigned To</th>
+            {STATUS_GROUPS.map(s => (
+              <th key={s} className="text-center py-2 px-2 font-medium">{s}</th>
+            ))}
+            <th className="text-center py-2 pl-2 font-medium">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {grouped.map(row => (
+            <tr key={row.name} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
+              <td className="py-2.5 pr-4 text-xs font-medium">{row.name}</td>
+              <td className="py-2.5 px-2 text-center"><span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-600 font-semibold">{(row as any)['Submitted']}</span></td>
+              <td className="py-2.5 px-2 text-center"><span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 font-semibold">{(row as any)['In Progress']}</span></td>
+              <td className="py-2.5 px-2 text-center"><span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 font-semibold">{(row as any)['Completed']}</span></td>
+              <td className="py-2.5 px-2 text-center"><span className="text-xs px-2 py-0.5 rounded-full bg-red-500/15 text-red-600 font-semibold">{(row as any)['Rejected']}</span></td>
+              <td className="py-2.5 pl-2 text-center text-xs font-bold">{row.total}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

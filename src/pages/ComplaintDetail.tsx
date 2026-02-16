@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Calendar, MapPin, Phone, User, Wrench, CheckCircle2, XCircle, Clock, Download, ImagePlus, FileImage, Paperclip, X } from 'lucide-react';
+import { ArrowLeft, Calendar, MapPin, Phone, User, Wrench, CheckCircle2, XCircle, Clock, Download, ImagePlus, FileImage, Paperclip, X, Undo2 } from 'lucide-react';
 import {
   getCurrentStageInfo,
   getStagesForFlow,
@@ -306,7 +306,23 @@ export default function ComplaintDetail() {
                   {label}
                 </Button>
               ))}
+              {currentStageInfo.stage > 1 && (
+                <Button
+                  variant="outline"
+                  disabled={acting || !actionNotes}
+                  onClick={() => handleAction('send_back')}
+                  className="border-amber-500/50 text-amber-600 hover:bg-amber-500/10"
+                >
+                  <Undo2 className="w-4 h-4 mr-1" />
+                  Send Back to Coordinator
+                </Button>
+              )}
             </div>
+            {currentStageInfo.stage > 1 && (
+              <p className="text-[10px] text-muted-foreground">
+                * Notes are required when sending back for clarification
+              </p>
+            )}
           </CardContent>
         </Card>
       )}
