@@ -39,7 +39,7 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Only admins can manage users' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    const { action, user_id, role, department, store } = await req.json();
+    const { action, user_id, role, department, store, email, password } = await req.json();
 
     if (!user_id) {
       return new Response(JSON.stringify({ error: 'user_id is required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -51,6 +51,21 @@ Deno.serve(async (req) => {
     }
 
     if (action === 'update') {
+      // Update auth user (email/password) via admin API
+      const authUpdate: Record<string, string> = {};
+      if (email) authUpdate.email = email;
+      if (password) authUpdate.password = password;
+      if (Object.keys(authUpdate).length > 0) {
+        const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(user_id, authUpdate);
+        if (authError) {
+          return new Response(JSON.stringify({ error: authError.message }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+        // Sync email to profiles table
+        if (email) {
+          await supabaseAdmin.from('profiles').update({ email }).eq('id', user_id);
+        }
+      }
+
       // Update profile fields
       const profileUpdate: Record<string, string | null> = {};
       if (department !== undefined) profileUpdate.department = department || null;
