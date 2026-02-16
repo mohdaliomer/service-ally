@@ -63,7 +63,7 @@ export const ALL_STATUSES: RequestStatus[] = [
   'Rejected',
 ];
 
-export type WorkflowAction = 'submit' | 'approve' | 'reject' | 'decide_internal' | 'decide_external' | 'acknowledge' | 'verify' | 'return' | 'quality_check' | 'close';
+export type WorkflowAction = 'submit' | 'approve' | 'reject' | 'decide_internal' | 'decide_external' | 'acknowledge' | 'verify' | 'return' | 'quality_check' | 'close' | 'send_back';
 
 export interface StageInfo {
   stage: number;
@@ -245,6 +245,11 @@ export function getNextStatusAfterAction(
 ): { nextStatus: RequestStatus; nextStage: number } | null {
   const stageInfo = getCurrentStageInfo(currentStatus, flowType);
   if (!stageInfo) return null;
+
+  // Send back to Store Coordinator (stage 1)
+  if (action === 'send_back') {
+    return { nextStatus: 'Submitted', nextStage: 1 };
+  }
 
   // Stage 3 decision point
   if (stageInfo.stage === 3) {
