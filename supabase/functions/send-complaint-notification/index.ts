@@ -29,48 +29,87 @@ Deno.serve(async (req) => {
 
     const { complaint_id, department, store, category, priority, description, reported_by_name } = await req.json();
 
+    const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
+    if (!RESEND_API_KEY) {
+      console.error('RESEND_API_KEY not configured');
+      return new Response(JSON.stringify({ error: 'Email service not configured' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    // Get department contacts
-    const { data: contacts } = await supabaseAdmin
-      .from('department_contacts')
-      .select('email, name')
-      .eq('department', department || 'Admin');
+    // Get store manager emails for the store
+    const { data: smRoles } = await supabaseAdmin.from('user_roles').select('user_id').eq('role', 'store_manager');
+    const smIds = smRoles?.map(r => r.user_id) || [];
 
-    // Get all admin users for notification
-    const { data: adminRoles } = await supabaseAdmin.from('user_roles').select('user_id').eq('role', 'admin');
-    const adminIds = adminRoles?.map(r => r.user_id) || [];
-    
-    let adminEmails: string[] = [];
-    if (adminIds.length > 0) {
-      const { data: adminProfiles } = await supabaseAdmin.from('profiles').select('email').in('id', adminIds);
-      adminEmails = adminProfiles?.map(p => p.email) || [];
+    let recipientEmails: string[] = [];
+    if (smIds.length > 0) {
+      const { data: profiles } = await supabaseAdmin.from('profiles').select('email, store').in('id', smIds);
+      recipientEmails = (profiles || [])
+        .filter(p => p.store === store || p.store === 'ALL')
+        .map(p => p.email);
     }
 
-    const contactEmails = contacts?.map(c => c.email) || [];
-    const allRecipients = [...new Set([...contactEmails, ...adminEmails])];
+    // Also notify admins
+    const { data: adminRoles } = await supabaseAdmin.from('user_roles').select('user_id').eq('role', 'admin');
+    const adminIds = adminRoles?.map(r => r.user_id) || [];
+    if (adminIds.length > 0) {
+      const { data: adminProfiles } = await supabaseAdmin.from('profiles').select('email').in('id', adminIds);
+      recipientEmails.push(...(adminProfiles?.map(p => p.email) || []));
+    }
 
-    // Log the notification (in production, integrate with email service like Resend/SendGrid)
-    console.log(`📧 Complaint Notification for ${complaint_id}`);
-    console.log(`Recipients: ${allRecipients.join(', ')}`);
-    console.log(`Subject: New Complaint ${complaint_id} - ${category} (${priority})`);
-    console.log(`Body: 
-      Complaint ID: ${complaint_id}
-      Store: ${store}
-      Department: ${department}
-      Category: ${category}
-      Priority: ${priority}
-      Description: ${description}
-      Reported By: ${reported_by_name}
-    `);
+    const allRecipients = [...new Set(recipientEmails)];
 
-    return new Response(JSON.stringify({ 
-      success: true, 
+    if (allRecipients.length === 0) {
+      return new Response(JSON.stringify({ success: true, recipients: [], message: 'No recipients found' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const htmlBody = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: #2563eb; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
+          <h2 style="margin: 0;">🆕 New Maintenance Request</h2>
+          <p style="margin: 5px 0 0; opacity: 0.9;">Request ID: ${complaint_id}</p>
+        </div>
+        <div style="border: 1px solid #e5e7eb; border-top: none; padding: 20px; border-radius: 0 0 8px 8px;">
+          <p>A new maintenance request has been submitted and requires your attention.</p>
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr><td style="padding: 8px 0; color: #6b7280; width: 140px;">Store:</td><td style="padding: 8px 0; font-weight: 600;">${store}</td></tr>
+            <tr><td style="padding: 8px 0; color: #6b7280;">Department:</td><td style="padding: 8px 0;">${department || '—'}</td></tr>
+            <tr><td style="padding: 8px 0; color: #6b7280;">Category:</td><td style="padding: 8px 0;">${category}</td></tr>
+            <tr><td style="padding: 8px 0; color: #6b7280;">Priority:</td><td style="padding: 8px 0; font-weight: 600;">${priority}</td></tr>
+            <tr><td style="padding: 8px 0; color: #6b7280;">Reported By:</td><td style="padding: 8px 0;">${reported_by_name}</td></tr>
+          </table>
+          ${description ? `<div style="margin-top: 16px; padding: 12px; background: #f9fafb; border-radius: 6px;"><p style="margin: 0 0 4px; color: #6b7280; font-size: 12px;">Description:</p><p style="margin: 0;">${description}</p></div>` : ''}
+          <p style="margin-top: 20px; font-size: 13px; color: #9ca3af;">Please log in to approve or take action on this request.</p>
+        </div>
+      </div>
+    `;
+
+    const resendRes = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: 'Maintenance System <onboarding@resend.dev>',
+        to: allRecipients,
+        subject: `🆕 New Request ${complaint_id} — ${category} (${priority})`,
+        html: htmlBody,
+      }),
+    });
+
+    const resendData = await resendRes.json();
+    console.log(`📧 New complaint email sent for ${complaint_id}`, resendData);
+
+    return new Response(JSON.stringify({
+      success: resendRes.ok,
       recipients: allRecipients,
-      message: `Notification sent to ${allRecipients.length} recipients`
+      message: `Email sent to ${allRecipients.length} recipients`,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
