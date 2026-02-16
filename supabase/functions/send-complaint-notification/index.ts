@@ -62,6 +62,28 @@ Deno.serve(async (req) => {
 
     const allRecipients = [...new Set(recipientEmails)];
 
+    // Insert in-app notifications for store managers and admins
+    const allUserIds = [...new Set([...smIds, ...adminIds])];
+    if (allUserIds.length > 0) {
+      // Filter to same store or ALL for store managers
+      let notifUserIds: string[] = [];
+      if (smIds.length > 0) {
+        const { data: smProfiles } = await supabaseAdmin.from('profiles').select('id, store').in('id', smIds);
+        notifUserIds.push(...(smProfiles || []).filter(p => p.store === store || p.store === 'ALL').map(p => p.id));
+      }
+      notifUserIds.push(...adminIds);
+      const uniqueNotifIds = [...new Set(notifUserIds)];
+      if (uniqueNotifIds.length > 0) {
+        const rows = uniqueNotifIds.map(uid => ({
+          user_id: uid,
+          complaint_id,
+          title: `New Request ${complaint_id}`,
+          message: `New ${priority} priority request: ${category} at ${store}. Reported by ${reported_by_name}.`,
+        }));
+        await supabaseAdmin.from('notifications').insert(rows);
+      }
+    }
+
     if (allRecipients.length === 0) {
       return new Response(JSON.stringify({ success: true, recipients: [], message: 'No recipients found' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

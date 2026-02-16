@@ -78,6 +78,24 @@ Deno.serve(async (req) => {
 
     const allRecipients = [...new Set(recipientEmails)];
 
+    // Insert in-app notifications
+    let notifUserIds: string[] = [];
+    if (coordinatorIds.length > 0) {
+      const { data: coordProfiles } = await supabaseAdmin.from('profiles').select('id, store').in('id', coordinatorIds);
+      notifUserIds = (coordProfiles || []).filter(p => p.store === store || p.store === 'ALL').map(p => p.id);
+    }
+    if (complaint?.reported_by) notifUserIds.push(complaint.reported_by);
+    const uniqueNotifIds = [...new Set(notifUserIds)];
+    if (uniqueNotifIds.length > 0) {
+      const rows = uniqueNotifIds.map(uid => ({
+        user_id: uid,
+        complaint_id,
+        title: `Request ${complaint_id} — Sent Back`,
+        message: `Sent back by ${sent_back_by} for clarification.${notes ? ' Reason: ' + notes : ''}`,
+      }));
+      await supabaseAdmin.from('notifications').insert(rows);
+    }
+
     if (allRecipients.length === 0) {
       return new Response(JSON.stringify({ success: true, recipients: [], message: 'No recipients found' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
