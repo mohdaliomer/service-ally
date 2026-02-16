@@ -13,6 +13,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
+import NotificationBell from '@/components/NotificationBell';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { pathname } = useLocation();
@@ -72,6 +73,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <p className="text-xs font-medium text-sidebar-foreground truncate">{profile?.full_name || 'User'}</p>
               <p className="text-[11px] text-sidebar-muted truncate">{profile?.email}</p>
             </div>
+            <NotificationBell />
           </div>
           <Button variant="ghost" size="sm" className="w-full text-sidebar-muted hover:text-sidebar-foreground" onClick={signOut}>
             <LogOut className="w-3 h-3 mr-2" /> Sign Out
@@ -104,6 +106,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 </Link>
               );
             })}
+            <NotificationBell />
             <button onClick={signOut} className="p-2 rounded-md text-sidebar-foreground">
               <LogOut className="w-4 h-4" />
             </button>

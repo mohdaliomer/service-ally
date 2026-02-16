@@ -164,9 +164,56 @@ Deno.serve(async (req) => {
 
     const allRecipients = [...new Set(recipientEmails)];
 
+    // Also collect user IDs for in-app notifications
+    let recipientUserIds: string[] = [];
+    if (nextRole) {
+      const { data: roleUsers } = await supabaseAdmin.from('user_roles').select('user_id').eq('role', nextRole);
+      const userIds = roleUsers?.map(r => r.user_id) || [];
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabaseAdmin.from('profiles').select('id, store').in('id', userIds);
+        recipientUserIds = (profiles || []).filter(p => p.store === store || p.store === 'ALL').map(p => p.id);
+      }
+    }
+    if (new_status === 'Completed-Internal' || new_status === 'Completed-External' || new_status === 'Rejected') {
+      const { data: complaint } = await supabaseAdmin.from('complaints').select('reported_by').eq('id', complaint_id).single();
+      if (complaint?.reported_by) recipientUserIds.push(complaint.reported_by);
+    }
+    if (action_taken === 'send_back') {
+      const { data: coordRoles } = await supabaseAdmin.from('user_roles').select('user_id').eq('role', 'store_coordinator');
+      const coordIds = coordRoles?.map(r => r.user_id) || [];
+      if (coordIds.length > 0) {
+        const { data: coordProfiles } = await supabaseAdmin.from('profiles').select('id, store').in('id', coordIds);
+        recipientUserIds.push(...(coordProfiles || []).filter(p => p.store === store || p.store === 'ALL').map(p => p.id));
+      }
+      const { data: complaint } = await supabaseAdmin.from('complaints').select('reported_by').eq('id', complaint_id).single();
+      if (complaint?.reported_by) recipientUserIds.push(complaint.reported_by);
+    }
+
+    const uniqueUserIds = [...new Set(recipientUserIds)];
+
+    // Insert in-app notifications
+    if (uniqueUserIds.length > 0) {
+      const notifTitle = isSendBack
+        ? `Request ${complaint_id} — Sent Back`
+        : isRejected
+        ? `Request ${complaint_id} — Rejected`
+        : isCompleted
+        ? `Request ${complaint_id} — Completed`
+        : `Request ${complaint_id} — Action Required`;
+      const notifMessage = `${statusLabel}. Action: ${actionLabel} by ${action_by}${notes ? '. Notes: ' + notes : ''}`;
+
+      const rows = uniqueUserIds.map(uid => ({
+        user_id: uid,
+        complaint_id,
+        title: notifTitle,
+        message: notifMessage,
+      }));
+      await supabaseAdmin.from('notifications').insert(rows);
+    }
+
     if (allRecipients.length === 0) {
-      console.log(`No recipients found for ${complaint_id} status ${new_status}`);
-      return new Response(JSON.stringify({ success: true, recipients: [], message: 'No recipients found' }), {
+      console.log(`No email recipients found for ${complaint_id} status ${new_status}`);
+      return new Response(JSON.stringify({ success: true, recipients: [], message: 'No email recipients found' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
