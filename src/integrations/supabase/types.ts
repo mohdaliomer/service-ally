@@ -94,6 +94,8 @@ export type Database = {
           remarks: string | null
           reported_by: string
           reported_by_name: string
+          sent_back_from_stage: number | null
+          sent_back_from_status: string | null
           status: string
           store: string
           sub_category: string | null
@@ -116,6 +118,8 @@ export type Database = {
           remarks?: string | null
           reported_by: string
           reported_by_name: string
+          sent_back_from_stage?: number | null
+          sent_back_from_status?: string | null
           status?: string
           store: string
           sub_category?: string | null
@@ -138,6 +142,8 @@ export type Database = {
           remarks?: string | null
           reported_by?: string
           reported_by_name?: string
+          sent_back_from_stage?: number | null
+          sent_back_from_status?: string | null
           status?: string
           store?: string
           sub_category?: string | null

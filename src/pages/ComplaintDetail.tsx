@@ -42,6 +42,8 @@ interface RequestRow {
   closure_approval: boolean | null;
   flow_type: string | null;
   current_stage: number;
+  sent_back_from_status: string | null;
+  sent_back_from_stage: number | null;
 }
 
 interface ActionRow {
@@ -133,6 +135,60 @@ export default function ComplaintDetail() {
       action === 'decide_external' ? 'external' :
       request.flow_type;
 
+    // Handle re-raise: jump back to the stage that sent it back
+    if (action === 're_raise' && request.sent_back_from_status && request.sent_back_from_stage) {
+      const updateData: Record<string, any> = {
+        status: request.sent_back_from_status,
+        current_stage: request.sent_back_from_stage,
+        sent_back_from_status: null,
+        sent_back_from_stage: null,
+      };
+
+      const { error: updateError } = await supabase.from('complaints')
+        .update(updateData)
+        .eq('id', request.id);
+
+      if (updateError) {
+        toast({ title: 'Error', description: updateError.message, variant: 'destructive' });
+        setActing(false);
+        return;
+      }
+
+      await supabase.from('workflow_actions').insert({
+        complaint_id: request.id,
+        stage: request.current_stage,
+        action: 're_raise',
+        actor_id: user.id,
+        actor_name: profile?.full_name || user.email,
+        notes: notesOverride || actionNotes || null,
+      });
+
+      // Notify the target role
+      try {
+        await supabase.functions.invoke('send-workflow-notification', {
+          body: {
+            complaint_id: request.id,
+            store: request.store,
+            category: request.category,
+            description: request.description,
+            priority: request.priority,
+            new_status: request.sent_back_from_status,
+            action_taken: 're_raise',
+            action_by: profile?.full_name || user.email,
+            notes: notesOverride || actionNotes || '',
+          },
+        });
+      } catch (e) {
+        console.error('Workflow notification failed:', e);
+      }
+
+      toast({ title: 'Request re-raised', description: `Request returned to ${request.sent_back_from_status}` });
+      setActionNotes('');
+      fetchData();
+      setActing(false);
+      return;
+    }
+
     const result = getNextStatusAfterAction(request.status, flowType, action);
     if (!result) {
       toast({ title: 'Error', description: 'Cannot determine next status.', variant: 'destructive' });
@@ -147,6 +203,12 @@ export default function ComplaintDetail() {
 
     if (action === 'decide_internal') updateData.flow_type = 'internal';
     if (action === 'decide_external') updateData.flow_type = 'external';
+
+    // When sending back, record originating status/stage so coordinator can re-raise
+    if (action === 'send_back') {
+      updateData.sent_back_from_status = request.status;
+      updateData.sent_back_from_stage = request.current_stage;
+    }
 
     const { error: updateError } = await supabase.from('complaints')
       .update(updateData)
@@ -358,6 +420,39 @@ export default function ComplaintDetail() {
           </CardContent>
         </Card>
       )}
+
+      {/* Re-raise Panel for Store Coordinator on sent-back tickets */}
+      {!completed && !rejected && c.status === 'Submitted' && c.sent_back_from_status && c.sent_back_from_stage && 
+        role && (role === 'store_coordinator' || role === 'admin') && (
+        <Card className="border-amber-500/30 bg-amber-500/5">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Undo2 className="w-4 h-4 text-amber-600" />
+              Sent Back for Clarification — Re-raise to Stage {c.sent_back_from_stage}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              This request was sent back. You can update attachments/notes and re-raise it directly back to the reviewer.
+            </p>
+            <Textarea
+              placeholder="Add clarification notes..."
+              value={actionNotes}
+              onChange={e => setActionNotes(e.target.value)}
+              rows={2}
+            />
+            <Button
+              disabled={acting}
+              onClick={() => handleAction('re_raise')}
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+            >
+              <Undo2 className="w-4 h-4 mr-1" />
+              Re-raise Request
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
 
       {rejected && (
         <Card className="border-red-500/30 bg-red-500/5">
