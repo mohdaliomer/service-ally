@@ -167,6 +167,24 @@ export default function ComplaintDetail() {
       notes: notesOverride || actionNotes || null,
     });
 
+    // Send notification if sent back to coordinator
+    if (action === 'send_back') {
+      try {
+        await supabase.functions.invoke('send-back-notification', {
+          body: {
+            complaint_id: request.id,
+            store: request.store,
+            category: request.category,
+            description: request.description,
+            sent_back_by: profile?.full_name || user.email,
+            notes: notesOverride || actionNotes || '',
+          },
+        });
+      } catch (e) {
+        console.error('Send-back notification failed:', e);
+      }
+    }
+
     toast({ title: 'Action completed', description: `Request moved to ${result.nextStatus}` });
     setActionNotes('');
     fetchData();
