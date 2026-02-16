@@ -63,7 +63,7 @@ export const ALL_STATUSES: RequestStatus[] = [
   'Rejected',
 ];
 
-export type WorkflowAction = 'submit' | 'approve' | 'reject' | 'decide_internal' | 'decide_external' | 'acknowledge' | 'verify' | 'return' | 'quality_check' | 'close' | 'send_back';
+export type WorkflowAction = 'submit' | 'approve' | 'reject' | 'decide_internal' | 'decide_external' | 'acknowledge' | 'verify' | 'return' | 'quality_check' | 'close' | 'send_back' | 're_raise';
 
 export interface StageInfo {
   stage: number;
@@ -249,6 +249,12 @@ export function getNextStatusAfterAction(
   // Send back to Store Coordinator (stage 1)
   if (action === 'send_back') {
     return { nextStatus: 'Submitted', nextStage: 1 };
+  }
+
+  // Re-raise: return to the stage that sent it back (requires sentBackFromStatus/Stage)
+  if (action === 're_raise') {
+    // This is handled specially in the UI - caller must provide the target status/stage
+    return null;
   }
 
   // Stage 3 decision point
