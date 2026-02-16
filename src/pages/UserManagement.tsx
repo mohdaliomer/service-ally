@@ -42,7 +42,7 @@ export default function UserManagement() {
 
   // Edit state
   const [editUser, setEditUser] = useState<UserWithRole | null>(null);
-  const [editForm, setEditForm] = useState({ role: '', department: '', store: '' });
+  const [editForm, setEditForm] = useState({ role: '', department: '', store: '', email: '', password: '' });
   const [saving, setSaving] = useState(false);
 
   // Delete state
@@ -96,14 +96,14 @@ export default function UserManagement() {
 
   const openEdit = (u: UserWithRole) => {
     setEditUser(u);
-    setEditForm({ role: u.role || 'local_user', department: u.department || '', store: u.store || '' });
+    setEditForm({ role: u.role || 'local_user', department: u.department || '', store: u.store || '', email: u.email, password: '' });
   };
 
   const handleUpdate = async () => {
     if (!editUser) return;
     setSaving(true);
     const { data, error } = await supabase.functions.invoke('manage-user', {
-      body: { action: 'update', user_id: editUser.id, role: editForm.role, department: editForm.department || null, store: editForm.store || null },
+      body: { action: 'update', user_id: editUser.id, role: editForm.role, department: editForm.department || null, store: editForm.store || null, email: editForm.email !== editUser.email ? editForm.email : undefined, password: editForm.password || undefined },
     });
     if (error || data?.error) {
       toast({ title: 'Error', description: data?.error || error?.message || 'Failed to update user', variant: 'destructive' });
@@ -284,6 +284,14 @@ export default function UserManagement() {
             <DialogDescription>Update role, store, and department for {editUser?.full_name}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <Input type="email" value={editForm.email} onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))} placeholder="user@company.com" />
+            </div>
+            <div className="space-y-2">
+              <Label>New Password (leave blank to keep current)</Label>
+              <Input type="password" value={editForm.password} onChange={e => setEditForm(f => ({ ...f, password: e.target.value }))} placeholder="Min 6 characters" />
+            </div>
             <div className="space-y-2">
               <Label>Role</Label>
               <Select value={editForm.role} onValueChange={v => setEditForm(f => ({ ...f, role: v }))}>
